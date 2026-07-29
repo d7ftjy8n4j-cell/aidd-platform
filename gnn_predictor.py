@@ -106,7 +106,7 @@ class GCNPredictor:
             model_path = os.path.join(current_dir, 'gcn_egfr_best_model.pth')
 
         self.model_path = model_path
-        self.num_node_features = 14   # 训练时使用的原子特征数
+        self.num_node_features = 13   # 训练时使用的原子特征数（匹配 conv1.lin.weight[128,13]）
         self.hidden_dim = 128         # 隐藏层维度
 
         # 初始化并加载权重
@@ -134,13 +134,13 @@ class GCNPredictor:
     def _smiles_to_graph(self, smiles):
         """
         将SMILES转换为PyTorch Geometric Data对象。
-        原子特征与训练脚本完全一致（14维）。
+        原子特征与训练模型一致（13维，匹配 conv1.lin.weight 形状 [128,13]）。
         """
         mol = Chem.MolFromSmiles(smiles)
         if mol is None:
             raise ValueError(f"无效的SMILES字符串: {smiles}")
 
-        # ---- 构建14维原子特征（与训练脚本一致） ----
+        # ---- 构建13维原子特征（匹配训练模型 input_dim=13） ----
         atom_features = []
         for atom in mol.GetAtoms():
             feat = [
@@ -157,7 +157,6 @@ class GCNPredictor:
                 float(atom.GetTotalValence()),          # 11. 总化合价
                 1.0 if atom.GetNumImplicitHs() > 0 else 0.0,  # 12. 氢键供体
                 1.0 if atom.GetAtomicNum() in [7, 8] else 0.0, # 13. 氢键受体 (N,O)
-                1.0 if atom.GetIsAromatic() and atom.GetAtomicNum() in [6, 7] else 0.0,  # 14. 芳香环成员
             ]
             atom_features.append(feat)
 
