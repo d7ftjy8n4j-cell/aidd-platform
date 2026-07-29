@@ -188,6 +188,8 @@ def _render_upload_mode():
                 smiles_list = df[smiles_col].dropna().tolist()
                 st.session_state.batch_smiles_list = smiles_list
                 st.session_state.batch_data_source = "upload"
+                st.session_state.pipeline_input_mode = "📦 已导入数据"
+                st.session_state.clustering_input_option = "📂 从数据获取模块导入"
                 st.toast(f"✅ 已导入 {len(smiles_list)} 个分子")
                 st.info("💡 请前往「⚙️ 自动化流程」页面进行分析")
         else:

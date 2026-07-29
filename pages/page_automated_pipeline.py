@@ -60,6 +60,19 @@ def page_automated_pipeline():
             key="pipeline_input_mode"
         )
 
+        if has_batch_data and input_mode != "📦 已导入数据":
+            st.info(
+                "检测到当前会话中已有导入的批量分子数据。\n"
+                "请切换到“📦 已导入数据”模式，或继续使用其他输入方式。",
+                icon="ℹ️"
+            )
+            if st.button(
+                "切换到已导入数据",
+                key="pipeline_switch_to_imported_data"
+            ):
+                st.session_state.pipeline_input_mode = "📦 已导入数据"
+                st.experimental_rerun()
+
         smiles_list: list = []
 
         # Mode 1: 单个 SMILES

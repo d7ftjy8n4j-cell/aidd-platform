@@ -58,6 +58,18 @@ def show_clustering_page():
         key="clustering_input_option"
     )
 
+    if has_batch_data and input_option != "📂 从数据获取模块导入":
+        st.sidebar.info(
+            "检测到当前会话中已有获取的化合物数据，请切换到“📂 从数据获取模块导入”开始聚类。",
+            icon="ℹ️"
+        )
+        if st.sidebar.button(
+            "使用已获取数据",
+            key="clustering_switch_to_imported_data"
+        ):
+            st.session_state.clustering_input_option = "📂 从数据获取模块导入"
+            st.experimental_rerun()
+
     molecules: list = []
     mol_ids: list = []
 

@@ -64,6 +64,27 @@ except ImportError as e:
     def page_automated_pipeline():
         st.error("自动化流程页面加载失败，请检查 pages/page_automated_pipeline.py 文件")
 
+# ========== 导入数据获取与聚类页面 ==========
+try:
+    from pages.page_data_acquisition import show_data_acquisition
+    DATA_ACQUISITION_PAGE_AVAILABLE = True
+    logging.info("数据获取页面加载成功")
+except ImportError as e:
+    DATA_ACQUISITION_PAGE_AVAILABLE = False
+    logging.error(f"数据获取页面导入失败: {e}")
+    def show_data_acquisition():
+        st.error("数据获取页面加载失败，请检查 pages/page_data_acquisition.py 文件")
+
+try:
+    from pages.page_clustering import show_clustering_page
+    CLUSTERING_PAGE_AVAILABLE = True
+    logging.info("分子聚类页面加载成功")
+except ImportError as e:
+    CLUSTERING_PAGE_AVAILABLE = False
+    logging.error(f"分子聚类页面导入失败: {e}")
+    def show_clustering_page():
+        st.error("分子聚类页面加载失败，请检查 pages/page_clustering.py 文件")
+
 # ========== 导入药效团模块（不使用Streamlit UI） ==========
 try:
     import pharmacophore_streamlit
@@ -1139,8 +1160,8 @@ def main():
         st.Page(page_pharmacophore, title="🎯 药效团设计"),
         st.Page(page_3d_structure, title="🔗 3D结构"),
         st.Page(page_model_analysis, title="📊 模型分析"),
-        st.Page("pages/page_clustering.py", title="🧩 分子聚类"),
-        st.Page("pages/page_data_acquisition.py", title="📦 数据获取"),
+        st.Page(show_clustering_page, title="🧩 分子聚类"),
+        st.Page(show_data_acquisition, title="📦 数据获取"),
         st.Page(page_automated_pipeline, title="⚙️ 自动化流程"),
         st.Page(page_tech_details, title="🔬 技术详情"),
         st.Page(page_about, title="📚 关于项目"),
