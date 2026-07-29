@@ -40,6 +40,8 @@ if 'pipeline_results' not in st.session_state:
     st.session_state.pipeline_results = None
 if 'pipeline_smiles_list' not in st.session_state:
     st.session_state.pipeline_smiles_list = []
+if 'last_active_tab' not in st.session_state:
+    st.session_state.last_active_tab = None
 
 # ========== 主题检测（适配亮色/暗色模式） ==========
 if 'theme' not in st.session_state:
@@ -1061,6 +1063,12 @@ def render_sidebar():
         st.write("Streamlit: 1.28.0")
         st.write(f"主题: {'🌙 暗色' if st.session_state.theme == 'dark' else '☀️ 亮色'}")
         st.write(f"工作目录: {os.getcwd()}")
+
+        # 待处理数据提示
+        if st.session_state.get("batch_smiles_list"):
+            pending_count = len(st.session_state.batch_smiles_list)
+            pending_source = st.session_state.get("batch_data_source", "数据获取")
+            st.info(f"📦 **{pending_count}** 个分子待分析 (来源: {pending_source})", icon="📦")
 
         st.divider()
         rating = st.feedback("stars", key="global_feedback")

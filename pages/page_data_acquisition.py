@@ -268,8 +268,12 @@ def _render_fetch_result(fetch_result: FetchResult):
         ]
         st.session_state.batch_smiles_list = smiles_list
         st.session_state.batch_data_source = fetch_result.source
+        # 清空旧的流程结果缓存，避免与新数据混淆
+        st.session_state.pop("pipeline_results", None)
+        st.session_state.pop("pipeline_smiles_list", None)
         st.toast(f"✅ 已发送 {len(smiles_list)} 个分子到自动化流程")
-        st.info("💡 请前往「⚙️ 自动化流程」页面开始分析")
+        st.success("💡 请点击左侧导航栏「⚙️ 自动化流程」查看")
+        st.rerun()
 
     # 分子结构预览 (前 5 个)
     with st.expander("🔬 分子结构预览 (前 5 个)"):

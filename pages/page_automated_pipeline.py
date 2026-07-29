@@ -37,90 +37,91 @@ def page_automated_pipeline():
     
     pipeline = _get_pipeline()
     
-    # ---- 输入区 ----
-    st.subheader("📝 输入分子")
+    # ---- 是否已有缓存的流程结果（影响输入区折叠状态） ----
+    has_cached_results = bool(st.session_state.get("pipeline_results"))
 
-    # 检查是否有来自数据获取/聚类页面的批量数据 (不使用 pop，保留数据)
-    has_batch_data = (
-        "batch_smiles_list" in st.session_state
-        and st.session_state.batch_smiles_list
-    )
-    batch_source = st.session_state.get("batch_data_source", "数据获取")
-
-    # 自动设定默认输入模式
-    if has_batch_data and "pipeline_input_mode" not in st.session_state:
-        st.session_state["pipeline_input_mode"] = "📦 已导入数据"
-
-    input_mode = st.radio(
-        "选择输入方式",
-        ["单个SMILES", "批量上传CSV", "📦 已导入数据"],
-        horizontal=True,
-        key="pipeline_input_mode"
-    )
-
-    smiles_list: list = []
-
-    # Mode 1: 单个 SMILES
-    if input_mode == "单个SMILES":
-        default_smiles = st.session_state.get('last_smiles', '') or "Brc1cccc(Nc2ncnc3cc4ccccc4cc23)c1"
-        smiles = st.text_area(
-            "输入SMILES",
-            value=default_smiles,
-            height=100,
-            help="输入一个分子的SMILES表示",
-            key="pipeline_smiles_input"
+    # ---- 输入区（结果存在时自动折叠，让结果更突出） ----
+    with st.expander("📝 输入分子与流程配置", expanded=not has_cached_results):
+        # 检查是否有来自数据获取/聚类页面的批量数据 (不使用 pop，保留数据)
+        has_batch_data = (
+            "batch_smiles_list" in st.session_state
+            and st.session_state.batch_smiles_list
         )
-        if smiles.strip():
-            smiles_list = [smiles.strip()]
+        batch_source = st.session_state.get("batch_data_source", "数据获取")
 
-    # Mode 2: 上传 CSV
-    elif input_mode == "批量上传CSV":
-        uploaded = st.file_uploader(
-            "上传CSV文件 (需包含 'smiles' 列)",
-            type=["csv"],
-            key="pipeline_csv_upload"
+        # 自动设定默认输入模式
+        if has_batch_data and "pipeline_input_mode" not in st.session_state:
+            st.session_state["pipeline_input_mode"] = "📦 已导入数据"
+
+        input_mode = st.radio(
+            "选择输入方式",
+            ["单个SMILES", "批量上传CSV", "📦 已导入数据"],
+            horizontal=True,
+            key="pipeline_input_mode"
         )
-        if uploaded:
-            try:
-                df = pd.read_csv(uploaded)
-                if 'smiles' in df.columns:
-                    smiles_list = df['smiles'].dropna().astype(str).tolist()
-                    st.success(f"已加载 {len(smiles_list)} 个分子")
 
-                    # 预览
-                    with st.expander("📋 分子列表预览", expanded=False):
-                        st.dataframe(df.head(10), use_container_width=True)
-                else:
-                    st.error("CSV必须包含 'smiles' 列，当前列名: " + ", ".join(df.columns.tolist()))
-            except Exception as e:
-                st.error(f"CSV读取失败: {e}")
+        smiles_list: list = []
 
-    # Mode 3: 已从数据获取/聚类页面导入
-    else:
-        if has_batch_data:
-            smiles_list = list(st.session_state.batch_smiles_list)
-            st.success(f"✅ 已加载 {len(smiles_list)} 个分子 (来源: {batch_source})")
-
-            # 可编辑的文本区域（自动填充 batch_smiles_list）
-            edit_text = "\n".join(smiles_list)
-            edited = st.text_area(
-                "可编辑的SMILES列表 (每行一个)",
-                value=edit_text,
-                height=200,
-                help="从数据获取或聚类结果自动填入，可手动编辑",
-                key="pipeline_edited_smiles"
+        # Mode 1: 单个 SMILES
+        if input_mode == "单个SMILES":
+            default_smiles = st.session_state.get('last_smiles', '') or "Brc1cccc(Nc2ncnc3cc4ccccc4cc23)c1"
+            smiles = st.text_area(
+                "输入SMILES",
+                value=default_smiles,
+                height=100,
+                help="输入一个分子的SMILES表示",
+                key="pipeline_smiles_input"
             )
-            if edited.strip():
-                smiles_list = [s.strip() for s in edited.splitlines() if s.strip()]
+            if smiles.strip():
+                smiles_list = [smiles.strip()]
+
+        # Mode 2: 上传 CSV
+        elif input_mode == "批量上传CSV":
+            uploaded = st.file_uploader(
+                "上传CSV文件 (需包含 'smiles' 列)",
+                type=["csv"],
+                key="pipeline_csv_upload"
+            )
+            if uploaded:
+                try:
+                    df = pd.read_csv(uploaded)
+                    if 'smiles' in df.columns:
+                        smiles_list = df['smiles'].dropna().astype(str).tolist()
+                        st.success(f"已加载 {len(smiles_list)} 个分子")
+
+                        # 预览
+                        with st.expander("📋 分子列表预览", expanded=False):
+                            st.dataframe(df.head(10), use_container_width=True)
+                    else:
+                        st.error("CSV必须包含 'smiles' 列，当前列名: " + ", ".join(df.columns.tolist()))
+                except Exception as e:
+                    st.error(f"CSV读取失败: {e}")
+
+        # Mode 3: 已从数据获取/聚类页面导入
         else:
-            st.info("💡 请先前往「📦 数据获取」页面获取化合物数据，或在「🧩 分子聚类」页面筛选代表性分子。")
-            st.caption("也可使用「批量上传CSV」模式直接上传本地文件。")
-    
-    # ---- 步骤开关 ----
-    st.divider()
-    st.subheader("⚙️ 配置流程步骤")
-    
-    with st.expander("点击展开流程配置", expanded=True):
+            if has_batch_data:
+                smiles_list = list(st.session_state.batch_smiles_list)
+                st.success(f"✅ 已加载 {len(smiles_list)} 个分子 (来源: {batch_source})")
+
+                # 可编辑的文本区域（自动填充 batch_smiles_list）
+                edit_text = "\n".join(smiles_list)
+                edited = st.text_area(
+                    "可编辑的SMILES列表 (每行一个)",
+                    value=edit_text,
+                    height=200,
+                    help="从数据获取或聚类结果自动填入，可手动编辑",
+                    key="pipeline_edited_smiles"
+                )
+                if edited.strip():
+                    smiles_list = [s.strip() for s in edited.splitlines() if s.strip()]
+            else:
+                st.info("💡 请先前往「📦 数据获取」页面获取化合物数据，或在「🧩 分子聚类」页面筛选代表性分子。")
+                st.caption("也可使用「批量上传CSV」模式直接上传本地文件。")
+
+        # ---- 流程步骤配置 (在 expander 内) ----
+        st.divider()
+        st.markdown("**⚙️ 流程步骤配置**")
+        st.caption("勾选需要运行的步骤")
         col1, col2 = st.columns(2)
         with col1:
             enable_rf = st.checkbox("🌲 随机森林预测", value=True, 

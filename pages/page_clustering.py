@@ -67,6 +67,8 @@ def show_clustering_page():
             st.sidebar.success(
                 f"✅ 已从「{batch_source}」导入 {len(smiles_list)} 个分子"
             )
+            if st.sidebar.button("🔄 刷新数据", key="clustering_refresh"):
+                st.rerun()
             for i, smi in enumerate(smiles_list):
                 mol = Chem.MolFromSmiles(smi)
                 if mol:
