@@ -154,19 +154,29 @@ class DataFetcher:
 
         start_time = time.time()
         try:
-            # 1. 查询靶点
-            targets = self.targets_api.get(
-                pref_name__icontains=target_name,
-                organism=organism
-            ).only("target_chembl_id", "pref_name", "organism", "target_type")
+            # 1. 查询靶点（使用 search 端点，比 filter/get 更稳定）
+            targets = self.targets_api.search(target_name).only(
+                "target_chembl_id", "pref_name", "organism", "target_type"
+            )
             targets_df = pd.DataFrame.from_records(targets)
             if targets_df.empty:
                 return FetchResult(
                     success=False,
                     query=target_name,
                     source="ChEMBL",
-                    error=f"未找到靶点: {target_name} (organism={organism})"
+                    error=f"未找到靶点: {target_name}"
                 )
+
+            # 过滤物种
+            if organism and "organism" in targets_df.columns:
+                targets_df = targets_df[targets_df["organism"] == organism]
+                if targets_df.empty:
+                    return FetchResult(
+                        success=False,
+                        query=target_name,
+                        source="ChEMBL",
+                        error=f"未找到 organism={organism} 的靶点数据"
+                    )
 
             # 优先选择 SINGLE PROTEIN 类型
             if "target_type" in targets_df.columns:
