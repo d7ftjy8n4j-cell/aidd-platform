@@ -198,7 +198,8 @@ def page_automated_pipeline():
             status_text.text("")
         
         # ---- 存储结果 ----
-        st.session_state['pipeline_results'] = results
+        serializable_results = [r.to_dict() if hasattr(r, 'to_dict') else r for r in results]
+        st.session_state['pipeline_results'] = serializable_results
         st.session_state['pipeline_smiles_list'] = smiles_list
         
         # ---- 展示结果 ----
@@ -262,9 +263,6 @@ def page_automated_pipeline():
             st.session_state.pop('pipeline_results', None)
             st.session_state.pop('pipeline_smiles_list', None)
             st.rerun()
-        
-        # 触发重绘，确保结果区正确渲染
-        st.rerun()
     
     # ---- 从session_state恢复结果（页面重渲染时） ----
     elif 'pipeline_results' in st.session_state and st.session_state['pipeline_results']:
