@@ -125,16 +125,20 @@ class GCNPredictor:
             # 加载 state_dict
             state_dict = torch.load(self.model_path, map_location=self.device, weights_only=False)
 
-            # 尝试严格模式加载
+            # ---- 键名兼容：旧模型 (conv1/conv2/conv3/bn1/bn2) -> 新模型 (convs.N/bns.N) ----
+            remapped = self._remap_state_dict_keys(state_dict)
             try:
-                self.model.load_state_dict(state_dict, strict=True)
+                self.model.load_state_dict(remapped, strict=True)
                 logger.info("✓ 模型参数加载成功（严格模式）")
-            except Exception as e1:
-                logger.warning(f"严格模式加载失败: {e1}")
-                # 尝试宽松模式加载
+            except Exception as e:
+                logger.warning(f"严格模式加载失败: {e}")
                 try:
-                    self.model.load_state_dict(state_dict, strict=False)
-                    logger.info("✓ 模型参数加载成功（宽松模式，部分层可能不匹配）")
+                    self.model.load_state_dict(remapped, strict=False)
+                    missing, unexpected = self.model.load_state_dict(remapped, strict=False)
+                    if missing:
+                        logger.warning(f"缺少的键 (将被随机初始化): {missing}")
+                    if unexpected:
+                        logger.warning(f"多余的键 (已忽略): {unexpected}")
                 except Exception as e2:
                     logger.error(f"模型加载完全失败: {e2}")
                     raise
@@ -151,6 +155,49 @@ class GCNPredictor:
             logger.error(f"❌ 模型加载失败: {e}")
             raise
     
+    @staticmethod
+    def _remap_state_dict_keys(state_dict):
+        """
+        将旧格式键名转换为新格式，确保与保存的权重兼容。
+
+        旧格式: conv1.weight, conv2.bias, bn1.weight, bn2.bias, conv3.lin.weight ...
+        新格式: convs.0.weight, convs.1.bias, bns.0.weight, bns.1.bias, convs.2.lin.weight ...
+
+        如果已经是新格式，则原样返回。
+        """
+        import re
+
+        # 快速检查：如果第一个键已经是新格式则跳过
+        sample_key = next(iter(state_dict.keys()), "")
+        if re.match(r"^(convs|bns)\.\d+\.", sample_key):
+            return state_dict
+
+        new_dict = {}
+        for key, value in state_dict.items():
+            new_key = key
+
+            # conv1 -> convs.0, conv2 -> convs.1, conv3 -> convs.2
+            m = re.match(r"^conv(\d+)\.(.+)$", key)
+            if m:
+                layer_num = int(m.group(1)) - 1
+                new_key = f"convs.{layer_num}.{m.group(2)}"
+
+            # bn1 -> bns.0, bn2 -> bns.1
+            m = re.match(r"^bn(\d+)\.(.+)$", key)
+            if m:
+                layer_num = int(m.group(1)) - 1
+                new_key = f"bns.{layer_num}.{m.group(2)}"
+
+            if new_key != key:
+                logger.debug(f"键名重映射: {key} -> {new_key}")
+            new_dict[new_key] = value
+
+        remapped_count = sum(1 for k, nk in zip(state_dict.keys(), new_dict.keys()) if k != nk)
+        if remapped_count > 0:
+            logger.info(f"✓ 已重映射 {remapped_count} 个权重键名 (旧格式 -> 新格式)")
+
+        return new_dict
+
     def _smiles_to_graph(self, smiles):
         """
         将SMILES字符串转换为PyTorch Geometric图数据
