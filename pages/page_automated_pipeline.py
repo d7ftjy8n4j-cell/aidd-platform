@@ -39,16 +39,26 @@ def page_automated_pipeline():
     
     # ---- 输入区 ----
     st.subheader("📝 输入分子")
-    
+
+    # 检查是否有来自数据获取页面的批量数据
+    from_session = st.session_state.pop("batch_smiles_list", None)
+    data_source = st.session_state.pop("batch_data_source", None)
+
+    if from_session:
+        st.info(f"📦 已接收来自「{data_source or '数据获取'}」的 {len(from_session)} 个分子")
+        st.session_state["_auto_load_smiles"] = from_session
+        st.session_state["_auto_load_source"] = data_source
+
     input_mode = st.radio(
         "选择输入方式",
-        ["单个SMILES", "批量上传CSV"],
+        ["单个SMILES", "批量上传CSV", "📦 已导入数据"],
         horizontal=True,
         key="pipeline_input_mode"
     )
-    
+
     smiles_list: list = []
-    
+
+    # Mode 1: 单个 SMILES
     if input_mode == "单个SMILES":
         default_smiles = st.session_state.get('last_smiles', '') or "Brc1cccc(Nc2ncnc3cc4ccccc4cc23)c1"
         smiles = st.text_area(
@@ -60,7 +70,9 @@ def page_automated_pipeline():
         )
         if smiles.strip():
             smiles_list = [smiles.strip()]
-    else:
+
+    # Mode 2: 上传 CSV
+    elif input_mode == "批量上传CSV":
         uploaded = st.file_uploader(
             "上传CSV文件 (需包含 'smiles' 列)",
             type=["csv"],
@@ -72,7 +84,7 @@ def page_automated_pipeline():
                 if 'smiles' in df.columns:
                     smiles_list = df['smiles'].dropna().astype(str).tolist()
                     st.success(f"已加载 {len(smiles_list)} 个分子")
-                    
+
                     # 预览
                     with st.expander("📋 分子列表预览", expanded=False):
                         st.dataframe(df.head(10), use_container_width=True)
@@ -80,6 +92,28 @@ def page_automated_pipeline():
                     st.error("CSV必须包含 'smiles' 列，当前列名: " + ", ".join(df.columns.tolist()))
             except Exception as e:
                 st.error(f"CSV读取失败: {e}")
+
+    # Mode 3: 已从数据获取页面导入
+    else:
+        auto_load = st.session_state.pop("_auto_load_smiles", None)
+        auto_source = st.session_state.pop("_auto_load_source", "数据获取")
+        if auto_load:
+            smiles_list = auto_load
+            st.success(f"✅ 已加载 {len(smiles_list)} 个分子 (来源: {auto_source})")
+
+            # 可编辑
+            edit_text = "\n".join(smiles_list)
+            edited = st.text_area(
+                "可编辑的SMILES列表 (每行一个)",
+                value=edit_text,
+                height=200,
+                key="pipeline_edited_smiles"
+            )
+            if edited.strip():
+                smiles_list = [s.strip() for s in edited.splitlines() if s.strip()]
+        else:
+            st.info("💡 请先前往「📦 数据获取」页面获取化合物数据。")
+            st.caption("也可使用「批量上传CSV」模式直接上传本地文件。")
     
     # ---- 步骤开关 ----
     st.divider()

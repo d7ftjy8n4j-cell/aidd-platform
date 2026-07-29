@@ -1020,8 +1020,10 @@ def render_sidebar():
             3. **🔍 化学依据**：探索分子性质与相似性  
             4. **🎯 药效团设计**：生成3D药效团模型  
             5. **🔗 3D结构**：观察蛋白-配体相互作用  
-            6. **📊 模型分析**：理解模型性能与特征  
+            6. **📦 数据获取**：从ChEMBL/PubChem获取化合物数据  
             7. **⚙️ 自动化流程**：一键全流程综合评估  
+            8. **📊 模型分析**：理解模型性能与特征  
+            9. **🧩 分子聚类**：化学空间探索与多样性分析  
             ---
             *"双核驱动，理形相生"*  
             随机森林（理）与图神经网络（形）相互验证，让AI决策透明可解释。
@@ -1036,6 +1038,8 @@ def render_sidebar():
             - **🎯 药效团设计**：提取活性特征，生成 3D 药效团模型
             - **🔗 3D 结构**：蛋白-配体相互作用可视化
             - **📊 模型分析**：模型性能、特征重要性、混淆矩阵
+            - **📦 数据获取**：从 ChEMBL/PubChem 获取化合物，一键送入分析流程
+            - **🧩 分子聚类**：Butina 聚类 + UMAP 可视化，探索化学空间
             - **⚙️ 自动化流程**：一键全流程筛选，综合评估成药潜力
             - **🔬 技术详情**：系统架构、技术栈、特征工程对比
             - **📚 关于项目**：背景、特色、文件清单、致谢
@@ -1117,6 +1121,8 @@ def main():
         st.Page(page_pharmacophore, title="🎯 药效团设计"),
         st.Page(page_3d_structure, title="🔗 3D结构"),
         st.Page(page_model_analysis, title="📊 模型分析"),
+        st.Page("pages/page_clustering.py", title="🧩 分子聚类"),
+        st.Page("pages/page_data_acquisition.py", title="📦 数据获取"),
         st.Page(page_automated_pipeline, title="⚙️ 自动化流程"),
         st.Page(page_tech_details, title="🔬 技术详情"),
         st.Page(page_about, title="📚 关于项目"),
