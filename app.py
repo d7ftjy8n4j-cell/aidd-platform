@@ -31,6 +31,16 @@ if 'last_gnn_result' not in st.session_state:
 if 'advanced_analysis_triggered' not in st.session_state:
     st.session_state.advanced_analysis_triggered = False
 
+# ---- 跨页面共享状态 ----
+if 'batch_smiles_list' not in st.session_state:
+    st.session_state.batch_smiles_list = []
+if 'batch_data_source' not in st.session_state:
+    st.session_state.batch_data_source = None
+if 'pipeline_results' not in st.session_state:
+    st.session_state.pipeline_results = None
+if 'pipeline_smiles_list' not in st.session_state:
+    st.session_state.pipeline_smiles_list = []
+
 # ========== 主题检测（适配亮色/暗色模式） ==========
 if 'theme' not in st.session_state:
     try:

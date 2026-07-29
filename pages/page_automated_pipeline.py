@@ -40,14 +40,16 @@ def page_automated_pipeline():
     # ---- 输入区 ----
     st.subheader("📝 输入分子")
 
-    # 检查是否有来自数据获取页面的批量数据
-    from_session = st.session_state.pop("batch_smiles_list", None)
-    data_source = st.session_state.pop("batch_data_source", None)
+    # 检查是否有来自数据获取/聚类页面的批量数据 (不使用 pop，保留数据)
+    has_batch_data = (
+        "batch_smiles_list" in st.session_state
+        and st.session_state.batch_smiles_list
+    )
+    batch_source = st.session_state.get("batch_data_source", "数据获取")
 
-    if from_session:
-        st.info(f"📦 已接收来自「{data_source or '数据获取'}」的 {len(from_session)} 个分子")
-        st.session_state["_auto_load_smiles"] = from_session
-        st.session_state["_auto_load_source"] = data_source
+    # 自动设定默认输入模式
+    if has_batch_data and "pipeline_input_mode" not in st.session_state:
+        st.session_state["pipeline_input_mode"] = "📦 已导入数据"
 
     input_mode = st.radio(
         "选择输入方式",
@@ -93,26 +95,25 @@ def page_automated_pipeline():
             except Exception as e:
                 st.error(f"CSV读取失败: {e}")
 
-    # Mode 3: 已从数据获取页面导入
+    # Mode 3: 已从数据获取/聚类页面导入
     else:
-        auto_load = st.session_state.pop("_auto_load_smiles", None)
-        auto_source = st.session_state.pop("_auto_load_source", "数据获取")
-        if auto_load:
-            smiles_list = auto_load
-            st.success(f"✅ 已加载 {len(smiles_list)} 个分子 (来源: {auto_source})")
+        if has_batch_data:
+            smiles_list = list(st.session_state.batch_smiles_list)
+            st.success(f"✅ 已加载 {len(smiles_list)} 个分子 (来源: {batch_source})")
 
-            # 可编辑
+            # 可编辑的文本区域（自动填充 batch_smiles_list）
             edit_text = "\n".join(smiles_list)
             edited = st.text_area(
                 "可编辑的SMILES列表 (每行一个)",
                 value=edit_text,
                 height=200,
+                help="从数据获取或聚类结果自动填入，可手动编辑",
                 key="pipeline_edited_smiles"
             )
             if edited.strip():
                 smiles_list = [s.strip() for s in edited.splitlines() if s.strip()]
         else:
-            st.info("💡 请先前往「📦 数据获取」页面获取化合物数据。")
+            st.info("💡 请先前往「📦 数据获取」页面获取化合物数据，或在「🧩 分子聚类」页面筛选代表性分子。")
             st.caption("也可使用「批量上传CSV」模式直接上传本地文件。")
     
     # ---- 步骤开关 ----
@@ -240,6 +241,16 @@ def page_automated_pipeline():
                 key="pipeline_detail_selector"
             )
             _show_detailed_report(pipeline, results[selected_idx], idx=selected_idx + 1)
+        
+        # 清空结果按钮
+        st.divider()
+        if st.button("🔄 清空结果并重新开始", key="clear_pipeline_results"):
+            st.session_state.pop('pipeline_results', None)
+            st.session_state.pop('pipeline_smiles_list', None)
+            st.rerun()
+        
+        # 触发重绘，确保结果区正确渲染
+        st.rerun()
     
     # ---- 从session_state恢复结果（页面重渲染时） ----
     elif 'pipeline_results' in st.session_state and st.session_state['pipeline_results']:
@@ -255,6 +266,13 @@ def page_automated_pipeline():
             st.divider()
             st.subheader("📄 详细报告")
             _show_detailed_report(pipeline, results[0])
+        
+        # 清空结果按钮
+        st.divider()
+        if st.button("🔄 清空结果并重新开始", key="clear_pipeline_results_cached"):
+            st.session_state.pop('pipeline_results', None)
+            st.session_state.pop('pipeline_smiles_list', None)
+            st.rerun()
 
 
 def _show_detailed_report(pipeline: Pipeline, result: SingleMoleculeResult, idx: int = 1):

@@ -36,32 +36,50 @@ def show_clustering_page():
 
     # ===================== 侧边栏：数据输入 =====================
     st.sidebar.header("📥 输入数据")
+
+    # 自动检测是否有来自数据获取页面的数据
+    has_batch_data = (
+        "batch_smiles_list" in st.session_state
+        and st.session_state.batch_smiles_list
+    )
+    batch_source = st.session_state.get("batch_data_source", "数据获取")
+
+    # 有数据时默认选择"从数据获取模块导入"
+    if has_batch_data and "clustering_input_option" not in st.session_state:
+        st.session_state["clustering_input_option"] = "📂 从数据获取模块导入"
+
     input_option = st.sidebar.radio(
         "选择输入方式",
         [
             "📂 从数据获取模块导入",
             "📄 上传 CSV 文件",
             "✏️ 手动输入 SMILES 列表",
-        ]
+        ],
+        key="clustering_input_option"
     )
 
     molecules: list = []
     mol_ids: list = []
 
     if input_option == "📂 从数据获取模块导入":
-        if (
-            "batch_smiles_list" in st.session_state
-            and st.session_state.batch_smiles_list
-        ):
+        if has_batch_data:
             smiles_list = st.session_state.batch_smiles_list
-            st.sidebar.success(f"已导入 {len(smiles_list)} 个分子")
+            st.sidebar.success(
+                f"✅ 已从「{batch_source}」导入 {len(smiles_list)} 个分子"
+            )
             for i, smi in enumerate(smiles_list):
                 mol = Chem.MolFromSmiles(smi)
                 if mol:
                     molecules.append(mol)
                     mol_ids.append(f"mol_{i} ({smi[:20]}...)")
         else:
-            st.sidebar.warning("请先在「📦 数据获取」页面获取化合物数据")
+            st.sidebar.warning(
+                "⚠️ 请先在「📦 数据获取」页面获取化合物数据\n\n"
+                "支持的操作：\n"
+                "- 按靶点名称从 ChEMBL 检索\n"
+                "- 按分子结构相似性搜索\n"
+                "- 手动输入 SMILES 列表"
+            )
 
     elif input_option == "📄 上传 CSV 文件":
         uploaded = st.sidebar.file_uploader(
