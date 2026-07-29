@@ -28,7 +28,6 @@ torchaudio==2.1.2+cpu
 torch-geometric==2.4.0
 
 # ========== 其他依赖 ==========
-requests>=2.31.0
 matplotlib>=3.7.0
 pillow>=10.0.0
 plotly>=5.18.0
