@@ -44,8 +44,8 @@ def show_clustering_page():
     )
     batch_source = st.session_state.get("batch_data_source", "数据获取")
 
-    # 有数据时默认选择"从数据获取模块导入"
-    if has_batch_data and "clustering_input_option" not in st.session_state:
+    # 有数据时始终切换为"从数据获取模块导入"（覆盖用户之前可能选错的状态）
+    if has_batch_data:
         st.session_state["clustering_input_option"] = "📂 从数据获取模块导入"
 
     input_option = st.sidebar.radio(
@@ -343,19 +343,29 @@ def show_clustering_page():
                 mime="text/csv",
             )
     with col2:
-        if st.button("🚀 代表分子送入分析", type="primary"):
-            idxs, _ = engine.get_representative_subset(
-                summary, molecules, max_compounds=1000
+        already_sent_to_pipeline = (
+            st.session_state.get("batch_data_source") == "clustering"
+            and st.session_state.get("batch_smiles_list")
+        )
+        if already_sent_to_pipeline:
+            st.success(
+                f"✅ 已发送 {len(st.session_state.batch_smiles_list)} 个代表分子 — "
+                "请切换到「⚙️ 自动化流程」页面"
             )
-            smiles_subset = [
-                Chem.MolToSmiles(molecules[i]) for i in idxs
-            ]
-            st.session_state.batch_smiles_list = smiles_subset
-            st.session_state.batch_data_source = "clustering"
-            st.toast(
-                f"已发送 {len(smiles_subset)} 个代表性分子到自动化流程"
-            )
-            st.info("💡 请前往「⚙️ 自动化流程」页面开始分析")
+        else:
+            if st.button("🚀 代表分子送入分析", type="primary"):
+                idxs, _ = engine.get_representative_subset(
+                    summary, molecules, max_compounds=1000
+                )
+                smiles_subset = [
+                    Chem.MolToSmiles(molecules[i]) for i in idxs
+                ]
+                st.session_state.batch_smiles_list = smiles_subset
+                st.session_state.batch_data_source = "clustering"
+                st.session_state.pipeline_input_mode = "📦 已导入数据"
+                st.session_state.pop("pipeline_results", None)
+                st.session_state.pop("pipeline_smiles_list", None)
+                st.rerun()
 
 
 if __name__ == "__main__":

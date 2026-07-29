@@ -38,18 +38,16 @@ def show_data_acquisition():
         horizontal=True,
     )
 
-    fetch_result: FetchResult = None
+    # 从 session 恢复数据获取结果（持久保留，不 pop）
+    fetch_result: FetchResult = st.session_state.get("fetch_result", None)
 
     # ===================== 模式 1: ChEMBL =====================
     if mode == "🔬 按靶点/疾病检索 (ChEMBL)":
         _render_chembl_mode()
-        # ChEMBL 模式将结果存入 session_state 后 rerun，
-        # 从 session 中恢复结果以供展示
-        fetch_result = st.session_state.pop("fetch_result", None)
 
     # ===================== 模式 2: PubChem =====================
     elif mode == "🧪 按结构相似性检索 (PubChem)":
-        fetch_result = _render_pubchem_mode()
+        _render_pubchem_mode()
 
     # ===================== 模式 3: 文件上传 =====================
     else:
@@ -109,8 +107,8 @@ def _render_chembl_mode():
             st.rerun()
 
 
-def _render_pubchem_mode() -> FetchResult:
-    """渲染 PubChem 相似性搜索表单，返回 fetch_result 或 None"""
+def _render_pubchem_mode():
+    """渲染 PubChem 相似性搜索表单，不再返回结果（改用 session_state 持久化）"""
     st.markdown("""
     **在 PubChem 中查找与输入分子结构相似的化合物**
     - 输入查询分子的 SMILES
@@ -144,9 +142,6 @@ def _render_pubchem_mode() -> FetchResult:
                 st.rerun()
         else:
             st.warning("请输入有效的 SMILES")
-
-    # 如果 session 中有上次的结果，渲染它
-    return st.session_state.pop("fetch_result", None)
 
 
 def _render_upload_mode():
@@ -262,20 +257,32 @@ def _render_fetch_result(fetch_result: FetchResult):
     )
 
     # 一键送入 Pipeline
-    if st.button("🚀 全部送入自动化分析", type="primary", key="send_to_pipeline"):
-        smiles_list = [
-            comp.smiles
-            for comp in fetch_result.compounds
-            if comp.smiles
-        ]
-        st.session_state.batch_smiles_list = smiles_list
-        st.session_state.batch_data_source = fetch_result.source
-        # 清空旧的流程结果缓存，避免与新数据混淆
-        st.session_state.pop("pipeline_results", None)
-        st.session_state.pop("pipeline_smiles_list", None)
-        st.toast(f"✅ 已发送 {len(smiles_list)} 个分子到自动化流程")
-        st.success("💡 请点击左侧导航栏「⚙️ 自动化流程」查看")
-        st.rerun()
+    already_sent = (
+        "batch_smiles_list" in st.session_state
+        and st.session_state.batch_smiles_list
+        and st.session_state.get("batch_data_source") == fetch_result.source
+    )
+    if already_sent:
+        st.success(
+            f"✅ 已发送 {len(st.session_state.batch_smiles_list)} 个分子到自动化流程 — "
+            "请切换到「⚙️ 自动化流程」页面开始分析"
+        )
+    else:
+        if st.button("🚀 全部送入自动化分析", type="primary", key="send_to_pipeline"):
+            smiles_list = [
+                comp.smiles
+                for comp in fetch_result.compounds
+                if comp.smiles
+            ]
+            st.session_state.batch_smiles_list = smiles_list
+            st.session_state.batch_data_source = fetch_result.source
+            # 联动：自动设置下游页面的输入模式
+            st.session_state.pipeline_input_mode = "📦 已导入数据"
+            st.session_state.clustering_input_option = "📂 从数据获取模块导入"
+            # 清空旧的流程结果缓存，避免与新数据混淆
+            st.session_state.pop("pipeline_results", None)
+            st.session_state.pop("pipeline_smiles_list", None)
+            st.rerun()
 
     # 分子结构预览 (前 5 个)
     with st.expander("🔬 分子结构预览 (前 5 个)"):

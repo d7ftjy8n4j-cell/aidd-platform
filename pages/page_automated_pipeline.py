@@ -49,8 +49,8 @@ def page_automated_pipeline():
         )
         batch_source = st.session_state.get("batch_data_source", "数据获取")
 
-        # 自动设定默认输入模式
-        if has_batch_data and "pipeline_input_mode" not in st.session_state:
+        # 有批量数据时始终切换为"已导入数据"模式
+        if has_batch_data:
             st.session_state["pipeline_input_mode"] = "📦 已导入数据"
 
         input_mode = st.radio(
@@ -197,94 +197,82 @@ def page_automated_pipeline():
             status.update(label="✅ 流程完成！", state="complete")
             status_text.text("")
         
-        # ---- 存储结果 ----
+        # ---- 存储结果（转为字典便于 session_state 序列化） ----
         serializable_results = [r.to_dict() if hasattr(r, 'to_dict') else r for r in results]
         st.session_state['pipeline_results'] = serializable_results
         st.session_state['pipeline_smiles_list'] = smiles_list
-        
-        # ---- 展示结果 ----
-        st.divider()
-        st.subheader("📊 流程结果汇总")
-        
-        # 汇总表格
-        df_summary = pipeline.results_to_dataframe(results)
-        st.dataframe(
-            df_summary,
-            use_container_width=True,
-            hide_index=True,
-            column_config={
-                "RF活性概率": st.column_config.NumberColumn(format="%.4f"),
-                "GNN活性概率": st.column_config.NumberColumn(format="%.4f"),
-            }
-        )
-        
-        # 统计信息
-        verdicts = df_summary["最终判定"].tolist()
-        recommended = sum(1 for v in verdicts if v.startswith("✅"))
-        active_but_poor = sum(1 for v in verdicts if v.startswith("⚠️ 活性"))
-        inactive = sum(1 for v in verdicts if v.startswith("❌"))
-        divergent = sum(1 for v in verdicts if "分歧" in v or "无法" in v)
-        
-        col_s1, col_s2, col_s3, col_s4 = st.columns(4)
-        with col_s1:
-            st.metric("✅ 推荐", recommended)
-        with col_s2:
-            st.metric("⚠️ 活性/成药性差", active_but_poor)
-        with col_s3:
-            st.metric("❌ 非活性", inactive)
-        with col_s4:
-            st.metric("⚡ 需人工判断", divergent)
-        
-        st.divider()
-        
-        # ---- 详细报告 ----
-        st.subheader("📄 详细报告")
-        
-        # 如果只有一个分子，直接展示；多个则用选择器
-        if len(results) == 1:
-            _show_detailed_report(pipeline, results[0])
-        else:
-            # 多分子选择
-            idx_options = [
-                f"[{i+1}] {r['smiles'][:50]}... → {r['summary'].get('final_verdict', 'N/A')}" 
-                for i, r in enumerate(results)
-            ]
-            selected_idx = st.selectbox(
-                "选择分子查看详细报告",
-                range(len(results)),
-                format_func=lambda i: idx_options[i],
-                key="pipeline_detail_selector"
-            )
-            _show_detailed_report(pipeline, results[selected_idx], idx=selected_idx + 1)
-        
-        # 清空结果按钮
-        st.divider()
-        if st.button("🔄 清空结果并重新开始", key="clear_pipeline_results"):
-            st.session_state.pop('pipeline_results', None)
-            st.session_state.pop('pipeline_smiles_list', None)
-            st.rerun()
+        # 触发重绘以显示完整结果（run_clicked 会在重绘后变 False，但结果已持久化）
+        st.rerun()
     
-    # ---- 从session_state恢复结果（页面重渲染时） ----
-    elif 'pipeline_results' in st.session_state and st.session_state['pipeline_results']:
-        results = st.session_state['pipeline_results']
-        pipeline = _get_pipeline()
-        
-        st.info(f"📌 上一次运行结果 ({len(results)} 个分子)，点击上方按钮重新运行。")
-        
-        df_summary = pipeline.results_to_dataframe(results)
-        st.dataframe(df_summary, use_container_width=True, hide_index=True)
-        
-        if len(results) == 1:
-            st.divider()
-            st.subheader("📄 详细报告")
-            _show_detailed_report(pipeline, results[0])
-        
-        # 清空结果按钮
-        st.divider()
-        if st.button("🔄 清空结果并重新开始", key="clear_pipeline_results_cached"):
-            st.session_state.pop('pipeline_results', None)
-            st.session_state.pop('pipeline_smiles_list', None)
-            st.rerun()
+    # ---- 始终展示已缓存的结果（无论是否刚运行完） ----
+    if 'pipeline_results' in st.session_state and st.session_state['pipeline_results']:
+        _render_pipeline_results(pipeline)
+
+
+def _render_pipeline_results(pipeline: Pipeline):
+    """统一的结果渲染函数 — 无论首次运行还是缓存恢复都展示完整结果"""
+    results = st.session_state['pipeline_results']
+    
+    st.divider()
+    st.subheader("📊 流程结果汇总")
+    
+    # 汇总表格
+    df_summary = pipeline.results_to_dataframe(results)
+    st.dataframe(
+        df_summary,
+        use_container_width=True,
+        hide_index=True,
+        column_config={
+            "RF活性概率": st.column_config.NumberColumn(format="%.4f"),
+            "GNN活性概率": st.column_config.NumberColumn(format="%.4f"),
+        }
+    )
+    
+    # 统计信息
+    verdicts = df_summary["最终判定"].tolist()
+    recommended = sum(1 for v in verdicts if v.startswith("✅"))
+    active_but_poor = sum(1 for v in verdicts if v.startswith("⚠️ 活性"))
+    inactive = sum(1 for v in verdicts if v.startswith("❌"))
+    divergent = sum(1 for v in verdicts if "分歧" in v or "无法" in v)
+    
+    col_s1, col_s2, col_s3, col_s4 = st.columns(4)
+    with col_s1:
+        st.metric("✅ 推荐", recommended)
+    with col_s2:
+        st.metric("⚠️ 活性/成药性差", active_but_poor)
+    with col_s3:
+        st.metric("❌ 非活性", inactive)
+    with col_s4:
+        st.metric("⚡ 需人工判断", divergent)
+    
+    st.divider()
+    
+    # ---- 详细报告 ----
+    st.subheader("📄 详细报告")
+    
+    # 如果只有一个分子，直接展示；多个则用选择器
+    if len(results) == 1:
+        _show_detailed_report(pipeline, results[0])
+    else:
+        # 多分子选择
+        idx_options = [
+            f"[{i+1}] {r['smiles'][:50]}... → {r['summary'].get('final_verdict', 'N/A')}" 
+            for i, r in enumerate(results)
+        ]
+        selected_idx = st.selectbox(
+            "选择分子查看详细报告",
+            range(len(results)),
+            format_func=lambda i: idx_options[i],
+            key="pipeline_detail_selector"
+        )
+        _show_detailed_report(pipeline, results[selected_idx], idx=selected_idx + 1)
+    
+    # 清空结果按钮
+    st.divider()
+    if st.button("🔄 清空结果并重新开始", key="clear_pipeline_results"):
+        st.session_state.pop('pipeline_results', None)
+        st.session_state.pop('pipeline_smiles_list', None)
+        st.rerun()
 
 
 def _show_detailed_report(pipeline: Pipeline, result: SingleMoleculeResult, idx: int = 1):
