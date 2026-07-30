@@ -116,7 +116,18 @@ except ImportError as e:
     DOCKING_PAGE_AVAILABLE = False
     logging.error(f"分子对接页面导入失败: {e}")
     def page_molecular_docking():
-        st.error("分子对接页面加载失败，请检查依赖: pip install openbabel nglview opencadd")
+        st.error("分子对接页面加载失败，请检查依赖: pip install openbabel nglview")
+
+# ========== 导入 MCS 最大公共子结构页面 ==========
+try:
+    from pages.mcs_analysis import page_mcs_analysis
+    MCS_PAGE_AVAILABLE = True
+    logging.info("MCS 最大公共子结构页面加载成功")
+except ImportError as e:
+    MCS_PAGE_AVAILABLE = False
+    logging.error(f"MCS 页面导入失败: {e}")
+    def page_mcs_analysis():
+        st.error("MCS 页面加载失败，请检查依赖: pip install rdkit-pypi")
 
 # ========== 导入药效团模块（不使用Streamlit UI） ==========
 try:
@@ -1206,6 +1217,7 @@ def main():
         st.Page(page_protein_ligand_interaction, title="💊 蛋白-配体作用"),
         st.Page(page_kinase_similarity, title="🧬 激酶相似性"),
         st.Page(page_molecular_docking, title="🔗 分子对接"),
+        st.Page(page_mcs_analysis, title="🧩 公共子结构"),
         st.Page(page_about, title="📚 关于项目"),
     ]
 
