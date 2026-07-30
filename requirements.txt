@@ -49,3 +49,12 @@ requests>=2.31.0
 # openbabel Python 绑定同 plip 一样需 SWIG 编译，云端不可用
 # 本地开发请手动安装: pip install openbabel
 # openbabel>=3.1.0
+
+# ========== 分子动力学模拟 (OpenMM) ==========
+# ⚠️ 仅限本地 conda 环境使用，Streamlit Cloud 无法安装
+# 本地安装: conda install -c conda-forge openmm openmmforcefields openff-toolkit pdbfixer mdtraj
+# openmm>=8.0
+# openmmforcefields>=0.12
+# openff-toolkit>=0.15
+# pdbfixer>=1.9
+# mdtraj>=1.9

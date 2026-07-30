@@ -149,6 +149,17 @@ except ImportError as e:
     def page_mcs_analysis():
         st.error("MCS 页面加载失败，请检查依赖: pip install rdkit-pypi")
 
+# ========== 导入分子动力学模拟页面 ==========
+try:
+    from pages.page_molecular_dynamics import page_molecular_dynamics
+    MD_PAGE_AVAILABLE = True
+    logging.info("分子动力学模拟页面加载成功")
+except ImportError as e:
+    MD_PAGE_AVAILABLE = False
+    logging.error(f"分子动力学页面导入失败: {e}")
+    def page_molecular_dynamics():
+        st.error("分子动力学模拟页面加载失败，请检查依赖: conda install -c conda-forge openmm pdbfixer mdtraj")
+
 # ========== 导入药效团模块（不使用Streamlit UI） ==========
 try:
     import pharmacophore_streamlit
@@ -1134,8 +1145,8 @@ def render_sidebar():
             4. **🔍 化学依据**：探索分子性质与相似性  
             5. **🎯 药效团设计**：生成 3D 药效团模型  
             6. **🧩 分子聚类 + 公共子结构**：化学空间探索与骨架发现  
-            7. **🔗 3D结构 + 蛋白-配体作用 + 分子对接**：从可视化到计算  
-            8. **🧬 激酶相似性**：理解激酶选择性  
+            7. **🔗 3D结构 + 蛋白-配体作用 + 分子对接 + 分子动力学**：从可视化到动态模拟
+            8. **🧬 激酶相似性**：理解激酶选择性
             9. **⚙️ 自动化流程**：一键全流程综合评估  
             10. **📊 模型与系统**：模型性能、架构、项目背景全览  
             ---
@@ -1156,6 +1167,7 @@ def render_sidebar():
             - **🔗 3D 结构**：蛋白-配体复合物交互式 3D 渲染
             - **💊 蛋白-配体作用**：氢键、疏水、π-π 堆积等相互作用检测
             - **🔗 分子对接**：AutoDock Vina 对接模拟，预测结合姿态
+            - **⚛️ 分子动力学**：OpenMM MD 模拟，观察原子运动与构象变化
             - **🧬 激酶相似性**：激酶组序列/结构相似性分析
             - **⚙️ 自动化流程**：预测→筛选→药效团→相似性一键串联
             - **📊 模型与系统**：模型性能 + 系统架构 + 项目背景（三合一）
@@ -1246,6 +1258,7 @@ def main():
         st.Page(page_3d_structure, title="🔗 3D结构"),
         st.Page(page_protein_ligand_interaction, title="💊 蛋白-配体作用"),
         st.Page(page_molecular_docking, title="🔗 分子对接"),
+        st.Page(page_molecular_dynamics, title="⚛️ 分子动力学"),
         st.Page(page_kinase_similarity, title="🧬 激酶相似性"),
         st.Page(page_automated_pipeline, title="⚙️ 自动化流程"),
         st.Page(page_model_and_system, title="📊 模型与系统"),
