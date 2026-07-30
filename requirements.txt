@@ -36,7 +36,9 @@ rich>=13.0.0
 markdown-it-py>=2.2.0
 
 # ========== 蛋白-配体相互作用分析 ==========
-plip>=2.3.0
+# plip 依赖 openbabel Python 绑定（需从源码编译 SWIG），Streamlit Cloud 无法构建
+# 本地开发请手动安装: pip install plip
+# plip>=2.3.0
 nglview>=3.1.0
 ipywidgets>=8.0.0
 
@@ -44,4 +46,6 @@ ipywidgets>=8.0.0
 requests>=2.31.0
 
 # ========== 分子对接 ==========
-# openbabel Python 绑定由 plip 作为依赖自动安装（需 packages.txt 中配有 swig/pkg-config）
+# openbabel Python 绑定同 plip 一样需 SWIG 编译，云端不可用
+# 本地开发请手动安装: pip install openbabel
+# openbabel>=3.1.0

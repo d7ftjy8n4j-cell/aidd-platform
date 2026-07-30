@@ -94,7 +94,17 @@ except ImportError as e:
     PLIP_PAGE_AVAILABLE = False
     logging.error(f"蛋白-配体相互作用页面导入失败: {e}")
     def page_protein_ligand_interaction():
-        st.error("蛋白-配体相互作用页面加载失败，请检查依赖: pip install plip nglview")
+        st.warning("⚠️ 蛋白-配体相互作用分析当前不可用")
+        st.markdown("""
+        **原因**：`plip` 依赖 `openbabel` Python 绑定，需在本地环境中编译安装（SWIG + C++ 库）。  
+        Streamlit Cloud 的 Debian 环境暂不支持该编译流程。
+
+        **本地使用**：
+        ```bash
+        conda install -c conda-forge openbabel
+        pip install plip
+        ```
+        """)
 
 # ========== 导入激酶相似性页面 ==========
 try:
@@ -116,7 +126,17 @@ except ImportError as e:
     DOCKING_PAGE_AVAILABLE = False
     logging.error(f"分子对接页面导入失败: {e}")
     def page_molecular_docking():
-        st.error("分子对接页面加载失败，请检查依赖: pip install openbabel nglview")
+        st.warning("⚠️ 分子对接功能当前不可用")
+        st.markdown("""
+        **原因**：对接模块依赖 `openbabel` Python 绑定做分子格式转换（PDB↔PDBQT），  
+        该包在 Streamlit Cloud 上无法从源码编译。
+
+        **本地使用**：
+        ```bash
+        conda install -c conda-forge openbabel smina
+        pip install nglview
+        ```
+        """)
 
 # ========== 导入 MCS 最大公共子结构页面 ==========
 try:
