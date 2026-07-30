@@ -107,6 +107,17 @@ except ImportError as e:
     def page_kinase_similarity():
         st.error("激酶相似性页面加载失败，请检查依赖: pip install opencadd")
 
+# ========== 导入分子对接页面 ==========
+try:
+    from pages.molecular_docking import page_molecular_docking
+    DOCKING_PAGE_AVAILABLE = True
+    logging.info("分子对接页面加载成功")
+except ImportError as e:
+    DOCKING_PAGE_AVAILABLE = False
+    logging.error(f"分子对接页面导入失败: {e}")
+    def page_molecular_docking():
+        st.error("分子对接页面加载失败，请检查依赖: pip install openbabel nglview opencadd")
+
 # ========== 导入药效团模块（不使用Streamlit UI） ==========
 try:
     import pharmacophore_streamlit
@@ -1188,6 +1199,7 @@ def main():
         st.Page(page_tech_details, title="🔬 技术详情"),
         st.Page(page_protein_ligand_interaction, title="💊 蛋白-配体作用"),
         st.Page(page_kinase_similarity, title="🧬 激酶相似性"),
+        st.Page(page_molecular_docking, title="🔗 分子对接"),
         st.Page(page_about, title="📚 关于项目"),
     ]
 
