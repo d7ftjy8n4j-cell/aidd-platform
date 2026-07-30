@@ -4,3 +4,5 @@ libxext6
 libfontconfig1
 libgl1
 openbabel
+swig
+pkg-config
