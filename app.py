@@ -1317,39 +1317,39 @@ def render_sidebar():
         # 教学指南
         with st.expander("📘 教学指南（新手必读）", expanded=False):
             st.markdown("""
-            **药尘光 · AIDD 学习路径**  
+            **药尘光 · AIDD 学习路径** (13 步)  
             1. **📦 数据获取**：从 ChEMBL / PubChem 获取化合物数据  
-            2. **🧪 分子预测**：输入 SMILES，体验双引擎对比预测  
-            3. **🛡️ 药物筛选**：评估成药性与毒性风险  
-            4. **🔍 化学依据**：探索分子性质与相似性  
-            5. **🎯 药效团设计**：生成 3D 药效团模型  
-            6. **🧩 分子聚类 + 公共子结构**：化学空间探索与骨架发现  
-            7. **🔗 3D结构 + 蛋白-配体作用 + 分子对接 + 分子动力学**：从可视化到动态模拟
-            8. **🧬 激酶相似性**：理解激酶选择性
-            9. **⚙️ 自动化流程**：一键全流程综合评估  
-            10. **📊 模型与系统**：模型性能、架构、项目背景全览  
+            2. **🧪 分子预测**：输入 SMILES，体验双引擎对比 + SHAP 解释  
+            3. **🧪 分子评估**：成药性筛选 + 理化性质 + 毒性警报（一站式）  
+            4. **🎯 药效团设计**：提取活性关键基团，生成 3D 药效团模型  
+            5. **🗺️ 化学空间**：Butina 聚类 + UMAP 可视化 + MCS 骨架发现  
+            6. **🔬 结构分析**：3D 可视化 + 非共价相互作用检测（氢键/疏水/π-π）  
+            7. **🔗 分子对接**：单分子精确对接 + 批量虚拟筛选  
+            8. **⚛️ 分子动力学**：全原子 MD 模拟 + MM-GBSA 结合自由能  
+            9. **🧬 激酶相似性**：KLIFS 激酶组选择性分析  
+            10. **🧬 分子生成**：LSTM 自回归生成新 EGFR 抑制剂候选分子  
+            11. **⚙️ 自动化流程**：预测→筛选→药效团→相似性一键串联  
+            12. **📊 模型与系统**：性能指标 + 双引擎架构 + 项目背景全览  
             ---
-            *"双核驱动，理形相生"*  
-            随机森林（理）与图神经网络（形）相互验证，让AI决策透明可解释。
+            每个标签页和子标签均有 **🎓 教学弹窗**，点击即可学习相关理论。
             """)
 
         # 功能导航指南
         with st.expander("📖 功能导航指南", expanded=False):
             st.markdown("""
-            - **📦 数据获取**：从 ChEMBL/PubChem 获取化合物，一键送入分析流程
-            - **🧪 分子预测**：核心活性预测，支持单分子/批量/双模型对比
-            - **🛡️ 药物筛选**：成药性评估（Lipinski）与毒性警报（PAINS/Brenk）
-            - **🔍 化学依据**：分子性质计算、相似性搜索、表示对比
-            - **🎯 药效团设计**：提取活性特征，生成 3D 药效团模型
-            - **🧩 分子聚类**：Butina 聚类 + UMAP 可视化，探索化学空间
-            - **🧩 公共子结构**：最大公共子结构（MCS）分析，发现共同骨架
-            - **🔗 3D 结构**：蛋白-配体复合物交互式 3D 渲染
-            - **💊 蛋白-配体作用**：氢键、疏水、π-π 堆积等相互作用检测
-            - **🔗 分子对接**：AutoDock Vina 对接模拟，预测结合姿态
-            - **⚛️ 分子动力学**：OpenMM MD 模拟，观察原子运动与构象变化
-            - **🧬 激酶相似性**：激酶组序列/结构相似性分析
-            - **⚙️ 自动化流程**：预测→筛选→药效团→相似性一键串联
-            - **📊 模型与系统**：模型性能 + 系统架构 + 项目背景（三合一）
+            **13 个顶层标签页**（部分内含子标签）：  
+            - **📦 数据获取**：ChEMBL/PubChem 检索 + CSV 上传，一键送入后续分析  
+            - **🧪 分子预测**：RF + GNN 双引擎 + SHAP 瀑布图 + 不确定性估计  
+            - **🧪 分子评估** [`🛡️药物筛选` `🔍化学依据`]：成药性 + 毒性 + 描述符 + 相似性  
+            - **🎯 药效团设计**：3D 药效团特征提取与模型生成  
+            - **🗺️ 化学空间** [`🧩分子聚类` `🧩公共子结构`]：Butina + UMAP + MCS  
+            - **🔬 结构分析** [`🔗3D可视化` `💊相互作用`]：蛋白-配体 3D 渲染 + PLIP 检测  
+            - **🔗 分子对接** [`🔗单分子` `🧩批量`]：Smina 对接 + 虚拟筛选排序  
+            - **⚛️ 分子动力学** [`⚛️MD模拟` `⚛️MM-GBSA`]：OpenMM 轨迹 + 结合自由能  
+            - **🧬 激酶相似性**：KLIFS-IFP 激酶组结合模式比较  
+            - **🧬 分子生成**：LSTM 自回归生成新颖 EGFR 抑制剂  
+            - **⚙️ 自动化流程**：预测→筛选→药效团→相似性一键串联  
+            - **📊 模型与系统**：模型性能 + 架构图 + 技术栈 + 项目背景（四合一）  
             """)
 
         # 系统信息
@@ -1397,11 +1397,27 @@ def page_home():
 
     st.title("🧬 EGFR抑制剂智能发现与设计平台")
 
+    with st.popover("🎓 新手指南"):
+        st.markdown("""
+        **欢迎来到药尘光！** 👋
+
+        这是一个面向 **AIDD（AI 辅助药物设计）教学** 的交互式平台，以 EGFR 激酶抑制剂为切入点。
+
+        **3 分钟快速上手**：
+        1. 在 **🧪 分子预测** 输入吉非替尼 SMILES，体验 AI 预测
+        2. 在 **🧪 分子评估** 查看其成药性 (Lipinski) 和毒性风险
+        3. 在 **🔬 结构分析** 加载 2ITY 观察蛋白-配体 3D 结合模式
+
+        **推荐学习路径**：左侧导航栏 → 📦 数据获取 → ... → 📊 模型与系统
+
+        每个标签页都有 **🎓 教学弹窗** — 点击即可学习背后的理论！
+        """)
+
     st.markdown("""
-    **双引擎预测系统** —— 集成传统机器学习与深度学习技术
-    | **🧪 标准模式**: 基于随机森林与分子描述符
-    | **🧠 高级模式**: 基于图神经网络与分子结构图
-    | **📊 对比分析**: 双模型结果对比与一致性验证
+    **双引擎预测系统** —— 集成传统机器学习与深度学习技术  
+    🧪 **标准模式**: 随机森林 + 200+ 分子描述符 + SHAP 可解释性  
+    🧠 **高级模式**: 图神经网络 (GCN) + 端到端分子图学习  
+    📊 **对比分析**: 双模型一致性验证，提升预测可靠性
     """)
 
     # 系统状态指示器
@@ -1421,25 +1437,137 @@ def page_home():
 
 
 # ============================================================
+# 合并包装函数 —— 将逻辑关联页面合并为 st.tabs 减少顶层标签数
+# ============================================================
+
+def page_molecular_evaluation():
+    """🧪 分子评估 = 药物筛选 + 化学依据"""
+    st.header("🧪 分子评估")
+    st.caption("一站式评估分子的成药性（ADME/Lipinski）、毒性风险（PAINS/Brenk）及理化性质。")
+    with st.popover("🎓 教学点"):
+        st.markdown("""
+        **药物设计的黄金法则**：
+        - **Lipinski 五规则**：口服药物的理化性质经验阈值（MW≤500, LogP≤5, HBA≤10, HBD≤5）
+        - **PAINS**：泛测定干扰化合物——某些子结构会在几乎所有 assay 中出现假阳性
+        - **Brenk 警报**：毒性/代谢不稳定/化学反应性结构片段
+        - **分子描述符**（LogP、TPSA 等）量化分子的类药性
+
+        理解这些筛选标准是 CADD 的第一步。
+        """)
+    tab1, tab2 = st.tabs(["🛡️ 药物筛选", "🔍 化学依据"])
+    with tab1:
+        page_drug_screening()
+    with tab2:
+        page_chem_insight()
+
+
+def page_chemical_space():
+    """🗺️ 化学空间 = 分子聚类 + 公共子结构"""
+    st.header("🗺️ 化学空间探索")
+    st.caption("从聚类降维到骨架发现，多角度探索化合物的化学多样性。")
+    with st.popover("🎓 教学点"):
+        st.markdown("""
+        **化学空间分析的两个维度**：
+        - **分子聚类 (Butina + UMAP)**：基于 Tanimoto 相似度将化合物分组，在 2D 投影中可视化结构多样性
+        - **最大公共子结构 (MCS)**：寻找活性分子的共同骨架——这是先导化合物优化的起点
+
+        化学空间分析帮助回答：「我们的化合物库覆盖了哪些结构类型？活性分子共享什么骨架？」
+        """)
+    tab1, tab2 = st.tabs(["🧩 分子聚类", "🧩 公共子结构"])
+    with tab1:
+        show_clustering_page()
+    with tab2:
+        page_mcs_analysis()
+
+
+def page_structure_analysis():
+    """🔬 结构分析 = 3D 结构 + 蛋白-配体作用"""
+    st.header("🔬 蛋白-配体结构分析")
+    st.caption("交互式 3D 可视化 + 非共价相互作用自动检测，全方位理解结合模式。")
+    with st.popover("🎓 教学点"):
+        st.markdown("""
+        **从结构到相互作用的递进**：
+        1. **3D 结构可视化**：以 cartoon/stick/surface 模式观察蛋白-配体复合物
+        2. **非共价作用分析**：自动检测氢键、疏水接触、π-π 堆积、盐桥、卤键
+
+        **关键概念**：
+        - 氢键是药物-靶标结合中最常见且最重要的作用力
+        - π-π 堆积在激酶抑制剂的 hinge 区域尤为关键
+        - 疏水接触贡献了结合自由能的主要部分（熵驱动）
+
+        推荐 EGFR 结构：3POZ (TAK-285)、2ITY (吉非替尼)、1M17 (埃罗替尼)
+        """)
+    tab1, tab2 = st.tabs(["🔗 3D 可视化", "💊 相互作用分析"])
+    with tab1:
+        page_3d_structure()
+    with tab2:
+        page_protein_ligand_interaction()
+
+
+def page_docking_unified():
+    """🔗 分子对接 = 单分子 + 批量对接"""
+    st.header("🔗 分子对接与虚拟筛选")
+    st.caption("基于 Smina (AutoDock Vina) 预测配体-蛋白结合姿态与亲和力，支持单分子精确对接与批量虚拟筛选。")
+    with st.popover("🎓 教学点"):
+        st.markdown("""
+        **分子对接的核心思想**：
+        - 将小分子「放入」蛋白结合口袋，搜索最优结合构象
+        - **打分函数** (scoring function) 估算结合亲和力 (kcal/mol)
+        - 对接是静态方法，不模拟蛋白柔性（如需动态信息请用 MD）
+
+        **单分子对接 vs 批量对接**：
+        - **单分子**：精确评估一个候选分子的结合模式
+        - **批量**：对化合物库并行对接，按打分排序——即「虚拟筛选」(virtual screening)
+
+        > 参考：TeachOpenCADD T015, T018
+        """)
+    tab1, tab2 = st.tabs(["🔗 单分子对接", "🧩 批量对接"])
+    with tab1:
+        page_molecular_docking()
+    with tab2:
+        page_batch_docking()
+
+
+def page_md_unified():
+    """⚛️ 分子动力学模拟 + MM-GBSA"""
+    st.header("⚛️ 分子动力学模拟与自由能计算")
+    st.caption("从全原子 MD 轨迹到结合自由能估算，完整的动态模拟工作流。")
+    with st.popover("🎓 教学点"):
+        st.markdown("""
+        **从静态到动态——为什么要做 MD？**
+        - 蛋白和配体在溶液中**不断运动**，晶体结构只是快照
+        - MD 模拟揭示**构象变化**、**隐性结合口袋**和**结合-解离过程**
+        - **力场** (AMBER + GAFF) 用参数化方程近似分子间作用力
+
+        **MM-GBSA——MD 之后做什么？**
+        - 从 MD 轨迹中提取多帧结构，用隐式溶剂模型 (GB-Neck2) 估算结合自由能
+        - $\\Delta G_\\text{bind} = G_\\text{complex} - G_\\text{receptor} - G_\\text{ligand}$
+        - 比对接打分更准确，比 FEP/TI 更快（适合教学场景）
+
+        > 参考：TeachOpenCADD T019 · *J Med Chem* (2016), 59(9), 4035-4061
+        """)
+    tab1, tab2 = st.tabs(["⚛️ MD 模拟", "⚛️ MM-GBSA"])
+    with tab1:
+        page_molecular_dynamics()
+    with tab2:
+        page_mmgbsa()
+
+
+# ============================================================
 # 主程序入口 - st.navigation
 # ============================================================
 def main():
-    """主程序入口 —— 标签页按 AIDD 认知逻辑编排"""
+    """主程序入口 —— 标签页按 AIDD 认知逻辑编排（13 页）"""
     pages = [
         st.Page(page_home, title="🏠 首页"),
         st.Page(show_data_acquisition, title="📦 数据获取"),
         st.Page(page_molecular_prediction, title="🧪 分子预测"),
-        st.Page(page_drug_screening, title="🛡️ 药物筛选"),
-        st.Page(page_chem_insight, title="🔍 化学依据"),
+        st.Page(page_molecular_evaluation, title="🧪 分子评估"),
         st.Page(page_pharmacophore, title="🎯 药效团设计"),
-        st.Page(show_clustering_page, title="🧩 分子聚类"),
-        st.Page(page_mcs_analysis, title="🧩 公共子结构"),
-        st.Page(page_3d_structure, title="🔗 3D结构"),
-        st.Page(page_protein_ligand_interaction, title="💊 蛋白-配体作用"),
-        st.Page(page_molecular_docking, title="🔗 分子对接"),
-        st.Page(page_batch_docking, title="🧩 批量对接"),
-        st.Page(page_molecular_dynamics, title="⚛️ 分子动力学"),
-        st.Page(page_mmgbsa, title="⚛️ MM-GBSA"),
+        st.Page(page_chemical_space, title="🗺️ 化学空间"),
+        st.Page(page_structure_analysis, title="🔬 结构分析"),
+        st.Page(page_docking_unified, title="🔗 分子对接"),
+        st.Page(page_md_unified, title="⚛️ 分子动力学"),
         st.Page(page_kinase_similarity, title="🧬 激酶相似性"),
         st.Page(page_molecular_generation, title="🧬 分子生成"),
         st.Page(page_automated_pipeline, title="⚙️ 自动化流程"),

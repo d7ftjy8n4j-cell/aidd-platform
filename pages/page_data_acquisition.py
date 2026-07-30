@@ -24,6 +24,26 @@ def show_data_acquisition():
         "从公开数据库中获取化合物数据，一键送入自动化分析流程"
     )
 
+    with st.popover("🎓 教学点"):
+        st.markdown("""
+        **公开化合物数据库是 AIDD 的起点**：
+
+        - **ChEMBL** (EMBL-EBI)：最大的公开生物活性数据库，收录数百万化合物-靶标活性数据
+          - 核心概念：IC50、pIC50（=-log₁₀(IC50)）、Ki、Kd
+          - 检索技巧：靶点名用标准名称（如 "EGFR"），可加物种过滤
+
+        - **PubChem** (NCBI)：全球最大的免费化学数据库
+          - 相似性搜索基于 Tanimoto 系数（Morgan 指纹）
+          - 可设定阈值筛选结构类似物
+
+        - **为什么需要数据获取？**
+          - 机器学习模型需要大量训练数据
+          - 相似性搜索帮助发现「me-too」先导化合物
+          - 化学空间分析需要多样化化合物库
+
+        > 获取的数据可一键送入分子聚类、自动化流程等下游分析。
+        """)
+
     # ---- 初始化 fetcher ----
     if "fetcher" not in st.session_state:
         st.session_state.fetcher = DataFetcher()

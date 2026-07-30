@@ -21,30 +21,42 @@
 
 ---
 
-## 🧭 AIDD 学习路径（18 个页面，按认知逻辑编排）
+## 🧭 AIDD 学习路径（13 个顶层标签页，部分含子标签）
 
-| 阶段 | # | 页面 | 核心内容 | 教学目标 |
-|:---:|---|------|----------|----------|
-| 🔰 入门 | 1 | 🏠 **首页** | 系统概览、模型状态、使用统计 | 建立整体认知 |
-| 📥 数据 | 2 | 📦 **数据获取** | ChEMBL / PubChem 检索、CSV 上传 | 学会获取公开化合物数据 |
-| 🤖 预测 | 3 | 🧪 **分子预测** | RF + GNN 双引擎活性预测 | 体验 AI 预测分子活性 |
-| 🧪 评估 | 4 | 🛡️ **药物筛选** | Lipinski 五规则、PAINS / Brenk 毒性 | 理解成药性评估 |
-| 🔬 分析 | 5 | 🔍 **化学依据** | 描述符计算、相似性搜索 | 掌握分子理化性质分析 |
-| 🎯 设计 | 6 | 🎯 **药效团设计** | 3D 药效团特征提取 | 理解「活性关键基团」 |
-| 🗺️ 探索 | 7 | 🧩 **分子聚类** | Butina 聚类 + UMAP 可视化 | 探索化学空间多样性 |
-| | 8 | 🧩 **公共子结构** | 最大公共子结构（MCS）分析 | 发现活性分子的共同骨架 |
-| 🔗 结构 | 9 | 🔗 **3D 结构** | 蛋白-配体复合物交互式 3D 渲染 | 观察三维结合模式 |
-| | 10 | 💊 **蛋白-配体作用** | 氢键、疏水、π-π 堆积等相互作用 | 理解分子间作用力 |
-| | 11 | 🔗 **分子对接** | AutoDock Vina 对接模拟 | 体验计算对接流程 |
-| | 12 | 🧩 **批量对接** | 多配体并行对接与结果排序 | 掌握虚拟筛选方法论 |
-| ⚛️ 模拟 | 13 | ⚛️ **分子动力学** | OpenMM MD 模拟，观察原子运动 | 理解蛋白-配体动态行为 |
-| | 14 | ⚛️ **MM-GBSA** | 结合自由能估算 (ΔG) | 定量评估结合亲和力 |
-| 🧬 拓展 | 15 | 🧬 **激酶相似性** | KLIFS-IFP 激酶组结合模式分析 | 理解激酶选择性 |
-| | 16 | 🧬 **分子生成** | 字符级 LSTM 自回归生成新分子 | 体验 AI 驱动的分子生成 |
-| ⚡ 整合 | 17 | ⚙️ **自动化流程** | 预测→筛选→药效团→相似性一键串联 | 体验完整 CADD 管线 |
-| 📊 总结 | 18 | 📊 **模型与系统** | 特征重要性、混淆矩阵、架构图、技术栈 | 理解模型性能与系统设计 |
+| 阶段 | # | 页面 | 子标签 | 教学目标 |
+|:---:|---|------|------|----------|
+| 🔰 入门 | 1 | 🏠 **首页** | — | 建立整体认知 + 快速上手引导 |
+| 📥 数据 | 2 | 📦 **数据获取** | — | 学会从 ChEMBL / PubChem 获取化合物数据 |
+| 🤖 预测 | 3 | 🧪 **分子预测** | — | RF + GNN 双引擎 + SHAP 解释 + 不确定性 |
+| 🧪 评估 | 4 | 🧪 **分子评估** | 🛡️药物筛选 · 🔍化学依据 | Lipinski / PAINS / Brenk + 描述符 + 相似性 |
+| 🎯 设计 | 5 | 🎯 **药效团设计** | — | 3D 药效团特征提取与模型生成 |
+| 🗺️ 探索 | 6 | 🗺️ **化学空间** | 🧩分子聚类 · 🧩公共子结构 | Butina 聚类 + UMAP + MCS 骨架发现 |
+| 🔬 结构 | 7 | 🔬 **结构分析** | 🔗3D可视化 · 💊相互作用 | 3D 渲染 + PLIP 非共价作用检测 |
+| 🔗 对接 | 8 | 🔗 **分子对接** | 🔗单分子 · 🧩批量 | Smina 精确对接 + 虚拟筛选排序 |
+| ⚛️ 模拟 | 9 | ⚛️ **分子动力学** | ⚛️MD模拟 · ⚛️MM-GBSA | OpenMM 全原子 MD + 结合自由能 (ΔG) |
+| 🧬 拓展 | 10 | 🧬 **激酶相似性** | — | KLIFS-IFP 激酶组选择性分析 |
+| | 11 | 🧬 **分子生成** | — | LSTM 自回归生成新颖 EGFR 抑制剂 |
+| ⚡ 整合 | 12 | ⚙️ **自动化流程** | — | 预测→筛选→药效团→相似性一键串联 |
+| 📊 总结 | 13 | 📊 **模型与系统** | 📈性能 · 🏗️架构 · 📚关于 | 模型评估 + 双引擎架构 + 技术栈 + 项目背景 |
 
-> **设计理念**：遵循「数据获取 → 单点分析 → 多维探索 → 结构可视化 → 计算模拟 → 流程整合 → 总结反思」的 AIDD 认知规律，每步均有 🎓 教学弹窗引导。
+> **设计理念**：遵循「数据获取 → 单点分析 → 多维探索 → 结构可视化 → 计算模拟 → 流程整合 → 总结反思」的 AIDD 认知规律。  
+> 每个标签页和子标签均有 **🎓 教学弹窗**，点击即可学习相关理论——从 Lipinski 五规则到 AMBER 力场，从 SHAP 瀑布图到 LSTM 温度采样。
+
+### 🗂️ 功能速览
+
+| 模块 | 页面 | 一句话说明 |
+|------|------|------|
+| 📥 数据层 | 数据获取 | ChEMBL / PubChem 检索 + CSV 上传 |
+| 🤖 预测层 | 分子预测 | RF + GNN 双引擎 + SHAP 解释 + 不确定性估计 |
+| 🧪 评估层 | 分子评估 | 成药性 (Lipinski) + 毒性 (PAINS/Brenk) + 理化性质 |
+| 🎯 设计层 | 药效团设计 | 3D 药效团特征提取 |
+| 🗺️ 探索层 | 化学空间 | Butina 聚类 + UMAP + MCS 骨架发现 |
+| 🔬 结构层 | 结构分析 | 3D 渲染 + PLIP 相互作用检测 |
+| 🔗 对接层 | 分子对接 | 单分子精确对接 + 批量虚拟筛选 |
+| ⚛️ 模拟层 | 分子动力学 | OpenMM MD + MM-GBSA 结合自由能 |
+| 🧬 拓展层 | 激酶相似性 · 分子生成 | KLIFS 选择性 + LSTM 从头设计 |
+| ⚡ 整合层 | 自动化流程 | 预测→筛选→药效团→相似性一键串联 |
+| 📊 总结层 | 模型与系统 | 性能 + 架构 + 技术栈 + 背景（四合一） |
 
 ---
 
@@ -198,87 +210,41 @@ streamlit run app.py
 
 ```
 .
-├── app.py                              # 主应用入口（st.navigation 18 页架构）
-├── requirements.txt                    # Python 依赖
-├── packages.txt                        # 系统级依赖（Streamlit Cloud 用）
-├── Dockerfile.dockerfile               # Docker 镜像
-├── environment_md.yml                  # conda 环境配置（含 OpenMM/OpenBabel）
-├── LICENSE                             # MIT 许可证
-├── README.md                           # 本文件
+├── app.py                      # 主入口（st.navigation 13 页，5 组合并标签）
+├── requirements.txt            # PyPI 依赖（Streamlit Cloud 兼容）
+├── packages.txt                # apt 系统依赖
+├── environment_md.yml          # conda 全栈环境（含 OpenMM/OpenBabel）
+├── Dockerfile.dockerfile       # Docker 镜像
 │
-├── 🧠 模型 & 数据文件
-│   ├── rf_egfr_model_final.pkl         # 随机森林模型（24 MB）
-│   ├── gcn_egfr_best_model.pth         # GNN 模型（179 KB）
-│   ├── feature_names.json              # 特征名称清单
-│   ├── feature_importance.png          # RF 特征重要性图
-│   └── gcn_confusion_matrix.png        # GNN 混淆矩阵
-│
-├── 🔧 核心引擎（根目录）
-│   ├── real_predictor.py               # RF 预测器
-│   ├── gnn_predictor.py                # GNN 预测器（GCN）
-│   ├── fallback_predictor.py           # 降级预测器（兜底方案）
-│   ├── chem_filter.py                  # ADME / Ro5 / PAINS / Brenk 筛选
-│   ├── chem_insight_safe.py            # 化学洞察与相似性搜索
-│   ├── pharmacophore_streamlit.py      # 药效团分析引擎
-│   ├── structure_viz.py                # 3D 可视化引擎（py3Dmol）
-│   ├── molecule_utils.py               # 分子处理工具
-│   ├── mcs_utils.py                    # MCS 最大公共子结构
-│   ├── docking_utils.py                # 分子对接工具（Smina）
-│   ├── interaction_utils.py            # 蛋白-配体相互作用（PLIP）
-│   ├── md_utils.py                     # 分子动力学工具
-│   └── protein_ligand_streamlit.py     # 蛋白-配体页面核心逻辑
-│
-├── 📂 页面模块（pages/）
-│   ├── page_data_acquisition.py        # 数据获取（ChEMBL / PubChem）
-│   ├── page_clustering.py              # 分子聚类（Butina + UMAP）
-│   ├── page_automated_pipeline.py      # 自动化流程（Pipeline 编排）
-│   ├── page_batch_docking.py           # 批量对接（多配体并行）
-│   ├── page_molecular_dynamics.py      # 分子动力学模拟（OpenMM）
-│   ├── page_mmgbsa.py                  # MM-GBSA 结合自由能
-│   ├── page_molecular_generation.py    # 分子生成（LSTM-RNN）
-│   ├── protein_ligand_interaction.py   # 蛋白-配体相互作用分析
-│   ├── kinase_similarity.py            # 激酶结合模式相似性（KLIFS）
-│   ├── molecular_docking.py            # 单分子对接
-│   └── mcs_analysis.py                 # MCS 公共子结构
-│
-├── 🛠️ 工具模块（utils/）
-│   ├── data_fetcher.py                 # ChEMBL / PubChem 数据获取
-│   ├── cluster_engine.py               # Butina 聚类引擎
-│   ├── pipeline.py                     # 自动化流程编排器
-│   ├── batch_docking_utils.py          # 批量对接工具
-│   ├── mmgbsa_utils.py                 # MM-GBSA 计算引擎
-│   ├── molecular_generation_utils.py   # 分子生成引擎
-│   ├── shap_utils.py                   # SHAP 模型解释
-│   ├── uncertainty_utils.py            # 预测不确定性评估
-│   └── knime_export_utils.py           # KNIME 工作流导出
-│
-└── 🧩 可复用组件（components/）
-    └── knime_export.py                 # KNIME 导出 UI 组件
+├── 🧠 模型                     # rf_egfr_model_final.pkl / gcn_egfr_best_model.pth
+├── 🔧 引擎                     # 12 个核心模块（predictor / filter / docking / md / …）
+├── 📂 pages/                   # 10 个独立页面（clustering / pipeline / docking / md / …）
+├── 🛠️ utils/                   # 5 个工具模块（fetcher / cluster / pipeline / shap / …）
+└── 🧩 components/              # 可复用 UI 组件（knime_export）
 ```
+
+> 完整文件清单见仓库。核心逻辑集中在根目录 `.py` 模块中，页面 UI 在 `pages/`，纯工具函数在 `utils/`。
 
 ---
 
 ## 🎯 使用指南
 
-### 推荐学习路线（AIDD 教学）
+### 推荐学习路线（AIDD 教学 · 12 步）
 
 | 步骤 | 操作 | 学习目标 |
 |:--:|------|----------|
 | 1 | 📦 **数据获取** → 从 ChEMBL 检索 EGFR 抑制剂数据 | 了解公共化合物数据库 |
-| 2 | 🧪 **分子预测** → 输入吉非替尼 SMILES，对比两种模型结果 | 体验 AI 预测，理解 RF vs GNN |
-| 3 | 🛡️ **药物筛选** → 评估吉非替尼的成药性与毒性风险 | 掌握 Lipinski 规则 |
-| 4 | 🔍 **化学依据** → 查看分子的 LogP、TPSA 等描述符 | 理解理化性质计算 |
-| 5 | 🎯 **药效团设计** → 从已知活性分子中提取药效团特征 | 理解活性关键基团 |
-| 6 | 🧩 **分子聚类** + **公共子结构** → 探索化学空间与共同骨架 | 发现结构-活性关系 |
-| 7 | 🔗 **3D 结构** → 加载 2ITY 观察吉非替尼与 EGFR 的结合 | 理解蛋白-配体三维结合 |
-| 8 | 💊 **蛋白-配体作用** → 分析关键氢键与疏水接触 | 理解分子间作用力 |
-| 9 | 🔗 **分子对接** + **批量对接** → 对接分子并排序打分 | 掌握虚拟筛选方法论 |
-| 10 | ⚛️ **分子动力学** → 对 EGFR-吉非替尼复合物运行 10 ns MD | 观察原子层面的动态行为 |
-| 11 | ⚛️ **MM-GBSA** → 从 MD 轨迹估算结合自由能 | 定量理解结合亲和力 |
-| 12 | 🧬 **激酶相似性** → 比较 EGFR 与 ErbB2 等家族成员 | 理解激酶选择性 |
-| 13 | 🧬 **分子生成** → 用 AI 生成新颖 EGFR 抑制剂候选分子 | 体验生成式 AI 药物设计 |
-| 14 | ⚙️ **自动化流程** → 运行一键全流程管线 | 串联各模块，形成完整认知 |
-| 15 | 📊 **模型与系统** → 查看模型性能与系统架构 | 总结反思，理解全局 |
+| 2 | 🧪 **分子预测** → 输入吉非替尼 SMILES，对比两种模型 | 体验 AI 预测，理解 RF vs GNN + SHAP |
+| 3 | 🧪 **分子评估** → 评估吉非替尼的成药性与毒性风险 | 掌握 Lipinski 规则 + 理化性质 |
+| 4 | 🎯 **药效团设计** → 从已知活性分子提取药效团特征 | 理解活性关键基团 |
+| 5 | 🗺️ **化学空间** → 聚类降维 + MCS 骨架发现 | 探索化学空间与结构-活性关系 |
+| 6 | 🔬 **结构分析** → 加载 2ITY 观察 3D 结合 + 相互作用 | 理解蛋白-配体三维结合 |
+| 7 | 🔗 **分子对接** → 单分子精确对接 + 批量虚拟筛选 | 掌握计算对接与筛选方法论 |
+| 8 | ⚛️ **分子动力学** → MD 模拟 + MM-GBSA 结合自由能 | 从静态到动态，定量评估亲和力 |
+| 9 | 🧬 **激酶相似性** → 比较 EGFR 与 ErbB2 等家族成员 | 理解激酶选择性 |
+| 10 | 🧬 **分子生成** → AI 生成新颖 EGFR 抑制剂候选分子 | 体验生成式 AI 药物设计 |
+| 11 | ⚙️ **自动化流程** → 运行一键全流程管线 | 串联各模块，形成完整认知 |
+| 12 | 📊 **模型与系统** → 查看性能指标与系统架构 | 总结反思，理解全局 |
 
 ### 示例 SMILES
 
@@ -381,6 +347,55 @@ conda install -c conda-forge openmm openmmforcefields openff-toolkit pdbfixer md
 ## 📄 许可证
 
 [MIT License](LICENSE)
+
+---
+
+## ❓ 常见问题
+
+<details>
+<summary><b>Streamlit Cloud 部署后某些页面报错？</b></summary>
+
+部分页面依赖需 C++ 编译的包（OpenMM、OpenBabel、PLIP），无法在 Streamlit Cloud 构建。这些页面在云端会自动降级显示安装指引。**完整功能需本地 conda 环境**：
+```bash
+conda env create -f environment_md.yml
+conda activate egfr
+streamlit run app.py
+```
+</details>
+
+<details>
+<summary><b>分子动力学模拟需要多久？</b></summary>
+
+教学演示（5,000 步 ≈ 10 ps）：CPU 约 2-5 分钟，GPU 约 30 秒。研究级模拟（500,000 步 ≈ 1 ns）：GPU 约 30-60 分钟。**推荐在有 NVIDIA GPU 的本地机器上运行**。
+</details>
+
+<details>
+<summary><b>如何导入自己的分子数据？</b></summary>
+
+在「📦 数据获取」页面支持 CSV/Excel 上传，只需包含 SMILES 列即可。也可通过 ChEMBL 靶点名或 PubChem 相似性搜索在线获取。获取后可直接送入分子聚类或自动化流程。
+</details>
+
+<details>
+<summary><b>预测结果可靠吗？如何解读？</b></summary>
+
+- **双模型一致** → 高可信度
+- **双模型不一致** → 该分子可能具有特殊结构（RF 依赖预设描述符，GNN 学习图拓扑），建议参考 SHAP 解释和不确定性估计
+- **不确定性低 + 概率远离 0.5** → 预测可信
+- **不确定性高或概率接近 0.5** → 建议结合分子对接、MD 模拟进一步验证
+</details>
+
+<details>
+<summary><b>页面间如何传递数据？</b></summary>
+
+```
+📦 数据获取 ──→ 🧩 分子聚类 ──→ ⚙️ 自动化流程
+     │                                    ▲
+     └────────────────────────────────────┘
+🧪 分子预测 ──────────────────────────────┘
+⚛️ 分子动力学 ──→ 💊 蛋白-配体作用（自动衔接）
+```
+所有中间结果通过 `st.session_state` 跨页面共享，无需手动导出/导入。
+</details>
 
 ---
 

@@ -57,18 +57,27 @@ def page_molecular_generation():
         return
 
     st.title("🧬 分子生成 (SMILES-RNN)")
+    st.caption("基于字符级 LSTM 自回归生成全新 EGFR 抑制剂候选分子。")
+
+    with st.popover("🎓 教学点"):
+        st.markdown("""
+        **AI 驱动的从头分子设计（de novo design）**：
+
+        - **化学语言模型**：将 SMILES 视为一种"化学语言"，LSTM 循环神经网络学习字符序列规律
+        - **自回归生成**：逐个字符地"写"出新 SMILES——类似手机键盘的预测文本
+        - **温度采样** ($T$)：控制生成多样性
+          - $T \\rightarrow 0$：确定性输出（总是选最高概率字符）
+          - $T = 1$：按学习到的分布采样
+          - $T > 1$：增加随机性，探索更广阔的化学空间
+
+        **迁移学习**：在 EGFR 抑制剂数据集上对基础模型做少量额外训练，
+        使模型"偏向"生成 EGFR 相关的化学结构。
+
+        **借鉴架构**：REINVENT (Olivecrona et al., *J Cheminform* 2017)  
+        > 参考：TeachOpenCADD T034
+        """)
+
     st.markdown("""
-    **基于字符级 LSTM 的分子生成器**
-
-    将 SMILES 视为一种"化学语言"，循环神经网络 (RNN) 学习其字符序列规律，
-    通过**自回归采样**生成全新分子。支持**迁移学习**微调，将生成聚焦于特定化学空间。
-
-    ---
-    **教学概念**：
-    - `化学语言模型` — SMILES 字符串的字符级自回归建模
-    - `温度采样`   — 控制生成多样性 (高温度 = 更多样)
-    - `迁移学习`   — 在 EGFR 抑制剂上微调，聚焦目标化学空间
-    """)
 
     # ---------- 初始化 Session State ----------
     for key, default in [
