@@ -149,6 +149,17 @@ except ImportError as e:
     def page_mcs_analysis():
         st.error("MCS 页面加载失败，请检查依赖: pip install rdkit-pypi")
 
+# ========== 导入 MM-GBSA 结合自由能页面 ==========
+try:
+    from pages.page_mmgbsa import page_mmgbsa
+    MMGBSA_PAGE_AVAILABLE = True
+    logging.info("MM-GBSA 页面加载成功")
+except ImportError as e:
+    MMGBSA_PAGE_AVAILABLE = False
+    logging.error(f"MM-GBSA 页面导入失败: {e}")
+    def page_mmgbsa():
+        st.error("MM-GBSA 页面加载失败，请检查依赖: conda install -c conda-forge openmm mdtraj")
+
 # ========== 导入分子动力学模拟页面 ==========
 try:
     from pages.page_molecular_dynamics import page_molecular_dynamics
@@ -1259,6 +1270,7 @@ def main():
         st.Page(page_protein_ligand_interaction, title="💊 蛋白-配体作用"),
         st.Page(page_molecular_docking, title="🔗 分子对接"),
         st.Page(page_molecular_dynamics, title="⚛️ 分子动力学"),
+        st.Page(page_mmgbsa, title="⚛️ MM-GBSA"),
         st.Page(page_kinase_similarity, title="🧬 激酶相似性"),
         st.Page(page_automated_pipeline, title="⚙️ 自动化流程"),
         st.Page(page_model_and_system, title="📊 模型与系统"),

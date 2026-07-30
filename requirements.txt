@@ -58,3 +58,9 @@ requests>=2.31.0
 # openff-toolkit>=0.15
 # pdbfixer>=1.9
 # mdtraj>=1.9
+
+# ========== MM-GBSA 结合自由能 (OpenMM + MDTraj) ==========
+# ⚠️ 仅限本地 conda 环境使用，Streamlit Cloud 无法安装
+# 本地安装: conda install -c conda-forge openmm mdtraj numpy pandas
+# openmm>=8.0
+# mdtraj>=1.9
