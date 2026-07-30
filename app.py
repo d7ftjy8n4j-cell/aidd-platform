@@ -922,132 +922,142 @@ def page_3d_structure():
             """)
 
 
-def page_model_analysis():
-    """📊 模型性能分析页面"""
-    st.header("📊 模型性能分析")
-    st.caption("查看双引擎模型的性能指标（AUC、准确率）、特征重要性排序和混淆矩阵。")
+def page_model_and_system():
+    """📊 模型与系统 —— 合并「模型分析」「技术详情」「关于项目」"""
+    st.header("📊 模型与系统")
+    st.caption("模型性能评估、双引擎架构、技术栈与项目背景一览")
 
     with st.popover("🎓 教学点"):
-        st.markdown("查看双引擎模型的性能指标（AUC、准确率）和特征重要性，"
-                    "理解模型评估方法及可解释性分析的价值。")
+        st.markdown("从模型性能到系统架构再到项目背景，建立对 AI 药物设计平台的全局认知。")
 
-    rf_perf = get_model_performance('rf')
-    gnn_perf = get_model_performance('gnn')
-    feature_img_path = os.path.join(BASE_DIR, "feature_importance.png")
-    gcn_img_path = os.path.join(BASE_DIR, "gcn_confusion_matrix.png")
+    # ==================== Tab 1: 模型分析 ====================
+    tab1, tab2, tab3 = st.tabs(["📈 模型性能", "🏗️ 系统架构", "📚 关于项目"])
 
-    col1, col2 = st.columns(2)
+    with tab1:
+        st.subheader("📈 模型性能评估")
+        rf_perf = get_model_performance('rf')
+        gnn_perf = get_model_performance('gnn')
+        feature_img_path = os.path.join(BASE_DIR, "feature_importance.png")
+        gcn_img_path = os.path.join(BASE_DIR, "gcn_confusion_matrix.png")
+        gcn_history_path = os.path.join(BASE_DIR, "gcn_training_history.png")
 
-    with col1:
-        st.subheader("随机森林模型")
-        st.metric("AUC", str(rf_perf.get('auc', 'N/A')), "优秀")
-        st.metric("准确率", str(rf_perf.get('accuracy', 'N/A')), "良好")
-        st.metric("特征数量", rf_perf.get('feature_count', 'N/A'), "RDKit描述符")
-        with st.expander("📈 特征重要性"):
-            st.image(feature_img_path if os.path.exists(feature_img_path) else
-                    "https://via.placeholder.com/400x200?text=特征重要性图",
-                    caption="随机森林特征重要性排序")
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown("#### 🌲 随机森林模型")
+            st.metric("AUC", str(rf_perf.get('auc', 'N/A')), "优秀")
+            st.metric("准确率", str(rf_perf.get('accuracy', 'N/A')), "良好")
+            st.metric("特征数量", rf_perf.get('feature_count', 'N/A'), "RDKit描述符")
+            with st.expander("📈 特征重要性"):
+                st.image(feature_img_path if os.path.exists(feature_img_path) else
+                        "https://via.placeholder.com/400x200?text=特征重要性图",
+                        caption="随机森林特征重要性排序")
 
-    with col2:
-        st.subheader("GNN模型")
-        st.metric("AUC", str(gnn_perf.get('auc', 'N/A')), "良好")
-        st.metric("准确率", str(gnn_perf.get('accuracy', 'N/A')), "良好")
-        st.metric("节点特征", gnn_perf.get('node_features', 'N/A'), "原子级特征")
-        with st.expander("📈 混淆矩阵"):
-            st.image(gcn_img_path if os.path.exists(gcn_img_path) else
-                    "https://via.placeholder.com/400x200?text=GNN混淆矩阵",
-                    caption="GNN模型混淆矩阵")
+        with col2:
+            st.markdown("#### 🧠 GNN 图神经网络")
+            st.metric("AUC", str(gnn_perf.get('auc', 'N/A')), "良好")
+            st.metric("准确率", str(gnn_perf.get('accuracy', 'N/A')), "良好")
+            st.metric("节点特征", gnn_perf.get('node_features', 'N/A'), "原子级特征")
+            with st.expander("📈 混淆矩阵"):
+                st.image(gcn_img_path if os.path.exists(gcn_img_path) else
+                        "https://via.placeholder.com/400x200?text=GNN混淆矩阵",
+                        caption="GNN模型混淆矩阵")
+            with st.expander("📈 训练曲线"):
+                if os.path.exists(gcn_history_path):
+                    st.image(gcn_history_path, caption="GNN训练历史")
 
-    st.markdown("---")
-    st.subheader("🎯 模型选择建议")
-    advice_data = {
-        "推荐场景": ["已知分子描述符", "分子结构图", "需要解释性", "追求前沿技术"],
-        "随机森林": ["✅ 优秀", "❌ 不适用", "✅ 特征重要性", "较传统"],
-        "GNN": ["❌ 不需要", "✅ 优秀", "❌ 黑盒性", "✅ 前沿"]
-    }
-    st.table(pd.DataFrame(advice_data))
+        st.markdown("---")
+        st.subheader("🎯 模型选择建议")
+        advice_data = {
+            "推荐场景": ["已知分子描述符", "分子结构图", "需要可解释性", "追求前沿技术"],
+            "随机森林": ["✅ 优秀", "❌ 不适用", "✅ 特征重要性", "较传统"],
+            "GNN": ["❌ 不需要", "✅ 优秀", "❌ 黑盒性", "✅ 前沿"]
+        }
+        st.table(pd.DataFrame(advice_data))
 
+        st.markdown("---")
+        st.subheader("📊 模型性能对比（5 折交叉验证）")
+        perf_data = {
+            "模型": ["随机森林", "GNN (GCN)"],
+            "AUC": [f"{rf_perf.get('auc', 'N/A')}", f"{gnn_perf.get('auc', 'N/A')}"],
+            "准确率": [f"{rf_perf.get('accuracy', 'N/A')}", f"{gnn_perf.get('accuracy', 'N/A')}"],
+            "特征": ["200+ RDKit 描述符", "13 维原子特征"],
+            "可解释性": ["⭐⭐⭐ 高", "⭐⭐ 中"],
+        }
+        st.table(pd.DataFrame(perf_data))
+        st.caption("训练数据：ChEMBL EGFR 靶点（CHEMBL203），IC50 筛选去重后 13,286 个唯一化合物（50.8% 活性）。")
 
-def page_tech_details():
-    """🔬 技术实现详情页面"""
-    st.header("🔬 技术实现详情")
-    st.caption("双引擎架构、技术栈与模型性能一览")
+    # ==================== Tab 2: 系统架构 ====================
+    with tab2:
+        st.subheader("🏗️ 双引擎架构")
 
-    with st.popover("🎓 教学点"):
-        st.markdown("了解系统架构、技术栈和特征工程对比，深入理解AI药物设计平台的技术实现。")
+        st.markdown("""
+        ```
+        输入层 (SMILES)
+            ├── 随机森林分支 → RDKit特征提取 (200+描述符) → 预测结果
+            └── GNN分支 → 分子图转换 (12维原子特征) → 图卷积网络 → 预测结果
+                         ↓
+                    集成决策：加权平均 + 一致性判断
+        ```
 
-    st.markdown("""
-    ### 🏗️ 双引擎架构
+        - **随机森林 (RF)**：基于化学经验的全局特征学习 —— 捕捉「理」
+        - **图神经网络 (GNN)**：基于分子拓扑的局部结构感知 —— 感知「形」
+        - **集成决策**：双引擎结论一致时可信度极高，不一致时提示深入分析
+        """)
 
-    ```
-    输入层 (SMILES)
-        ├── 随机森林分支 → RDKit特征提取 (200+描述符) → 预测结果
-        └── GNN分支 → 分子图转换 (12维原子特征) → 图卷积网络 → 预测结果
-    ```
+        st.markdown("---")
+        st.subheader("🔧 核心技术栈")
+        tech_data = {
+            "类别": ["Web 框架", "传统 ML", "深度学习", "化学信息学", "3D 可视化",
+                    "分子对接", "降维可视化", "数据处理", "数据获取"],
+            "技术": ["Streamlit ≥ 1.28", "scikit-learn", "PyTorch + PyTorch Geometric",
+                    "RDKit", "py3Dmol / nglview", "AutoDock Vina (Smina)",
+                    "UMAP-learn", "pandas / numpy", "chembl_webresource_client"],
+            "用途": ["交互式界面", "随机森林模型", "图神经网络", "分子解析与描述符",
+                    "蛋白-配体 3D 渲染", "计算结合姿态", "化学空间 2D 投影",
+                    "数据清洗统计", "ChEMBL API 访问"],
+        }
+        st.table(pd.DataFrame(tech_data))
 
-    - **随机森林 (RF)**：基于化学经验的全局特征学习（AUC 0.855）
-    - **图神经网络 (GNN)**：基于分子拓扑的局部结构感知（AUC 0.808）
-    - **集成决策**：加权平均 + 一致性判断，提升可靠性
+        st.markdown("---")
+        st.subheader("🎯 教学价值")
+        st.markdown("""
+        - **对比学习**：直观比较传统特征工程与深度学习在药物发现中的表现
+        - **可解释性**：RF 特征重要性揭示活性关键因素（LogP、芳香环数、氢键特征等）
+        - **端到端体验**：从 SMILES 输入到 3D 结构展示，完整 CADD 流程触手可及
+        - **渐进式设计**：标签页按 AIDD 认知逻辑编排，每步有教学弹窗引导
+        """)
 
-    ### 🔧 核心技术栈
+    # ==================== Tab 3: 关于项目 ====================
+    with tab3:
+        st.subheader("📚 关于药尘光")
 
-    | 组件 | 技术选型 | 用途 |
-    |------|----------|------|
-    | Web框架 | Streamlit | 交互式界面 |
-    | 机器学习 | scikit-learn | 随机森林模型 |
-    | 深度学习 | PyTorch + PyTorch Geometric | GNN模型 |
-    | 化学信息学 | RDKit | 分子特征与可视化 |
-    | 3D可视化 | py3Dmol | 蛋白-配体结构 |
+        st.markdown("""
+        ### 🎯 项目简介
 
-    ### 📊 模型性能对比
+        **药尘光** 是一款面向 **AIDD（AI 辅助药物设计）教学** 的交互式 Web 平台，
+        以 EGFR 激酶抑制剂为切入点，致力于将前沿 AI 技术转化为本科生触手可及的交互式学习工具。
 
-    | 指标 | 随机森林 | GNN | 说明 |
-    |------|----------|-----|------|
-    | AUC | 0.855 | 0.808 | 分类性能 |
-    | 准确率 | 83.0% | 76.5% | 测试集结果 |
-    | 可解释性 | 高（特征重要性） | 中（图注意力） | 教学价值 |
+        > *"双核驱动，理形相生"*  
+        > —— 随机森林捕捉「经验之理」，图神经网络感知「结构之形」，双引擎相互验证，让 AI 决策透明可解释。
 
-    ### 🎯 教学价值
-    - **对比学习**：直观比较传统特征工程与深度学习在药物发现中的表现
-    - **可解释性**：RF特征重要性揭示活性关键因素（如LogP、芳香环数）
-    - **端到端体验**：从SMILES输入到3D结构展示，完整CADD流程触手可及
-    """)
+        ### 🌟 核心特色
 
+        - **🧪 双引擎预测**：RF + GNN 对比学习两种 AI 范式
+        - **🎓 教学优先**：渐进式标签页 + 可解释性输出 + 实时引导，零基础上手
+        - **☁️ 云端即用**：浏览器打开即用，无需安装
+        - **📖 开源共享**：代码完全开源，数据源自 ChEMBL，支持二次开发与教学复用
 
-def page_about():
-    """📚 关于项目页面"""
-    st.header("📚 关于药尘光")
-    st.caption("项目背景、核心理念、特色与致谢")
+        ### 📦 资源与致谢
 
-    with st.popover("🎓 教学点"):
-        st.markdown("了解项目背景、特色、数据来源及开源资源，培养科研诚信与可复现意识。")
+        - **数据来源**：[ChEMBL](https://www.ebi.ac.uk/chembl/)（EMBL-EBI）、[PubChem](https://pubchem.ncbi.nlm.nih.gov/)（NCBI）
+        - **教程参考**：[TeachOpenCADD](https://github.com/volkamerlab/TeachOpenCADD)（T001, T007, T033, T035）
+        - **开源工具**：RDKit、PyTorch Geometric、Streamlit、scikit-learn
+        - **开源协议**：MIT License，仅供学术研究使用
 
-    st.markdown("""
-    ### 🎯 项目简介
-
-    **药尘光** 是一款面向 EGFR 抑制剂智能发现的 **教学友好型 Web 平台**，
-    致力于将前沿 AI 技术（随机森林 + 图神经网络）转化为本科生触手可及的交互式学习工具。
-
-    > *"双核驱动，理形相生"*
-    > —— 随机森林捕捉"经验之理"，图神经网络感知"结构之形"，双引擎相互验证，让 AI 决策透明可解释。
-
-    ### 🌟 核心特色
-
-    - **🧪 双引擎预测**：RF (AUC 0.855) + GNN (AUC 0.808)，对比学习两种 AI 范式
-    - **🎓 教学优先**：渐进式标签页 + 可解释性输出 + 实时引导，零基础上手
-    - **☁️ 云端即用**：无需安装，浏览器访问 https://ai-egfr-platform.streamlit.app/
-    - **📖 开源共享**：代码完全开源，数据源自 ChEMBL，支持二次开发与教学复用
-
-    ### 📦 资源与致谢
-
-    - **数据来源**：ChEMBL 数据库（13,286 个 EGFR 化合物，经 IC50 筛选去重后）
-    - **技术框架**：Streamlit、RDKit、PyTorch Geometric、scikit-learn
-    - **开源协议**：仅供学术研究使用，详情见 GitHub 仓库
-
-    ---
-    **GitHub**：https://github.com/d7ftjy8n4j-cell/ai-egfr-platform
-    **反馈建议**：欢迎提交 Issue 或 Pull Request
-    """)
+        ---
+        **GitHub**：https://github.com/d7ftjy8n4j-cell/ai-egfr-platform  
+        **反馈建议**：欢迎提交 Issue 或 Pull Request
+        """)
 
 
 # ============================================================
@@ -1117,16 +1127,17 @@ def render_sidebar():
         # 教学指南
         with st.expander("📘 教学指南（新手必读）", expanded=False):
             st.markdown("""
-            **药尘光 · 学习路径**  
-            1. **🧪 分子预测**：输入SMILES，体验双引擎对比  
-            2. **🛡️ 药物筛选**：评估成药性与毒性风险  
-            3. **🔍 化学依据**：探索分子性质与相似性  
-            4. **🎯 药效团设计**：生成3D药效团模型  
-            5. **🔗 3D结构**：观察蛋白-配体相互作用  
-            6. **📦 数据获取**：从ChEMBL/PubChem获取化合物数据  
-            7. **⚙️ 自动化流程**：一键全流程综合评估  
-            8. **📊 模型分析**：理解模型性能与特征  
-            9. **🧩 分子聚类**：化学空间探索与多样性分析  
+            **药尘光 · AIDD 学习路径**  
+            1. **📦 数据获取**：从 ChEMBL / PubChem 获取化合物数据  
+            2. **🧪 分子预测**：输入 SMILES，体验双引擎对比预测  
+            3. **🛡️ 药物筛选**：评估成药性与毒性风险  
+            4. **🔍 化学依据**：探索分子性质与相似性  
+            5. **🎯 药效团设计**：生成 3D 药效团模型  
+            6. **🧩 分子聚类 + 公共子结构**：化学空间探索与骨架发现  
+            7. **🔗 3D结构 + 蛋白-配体作用 + 分子对接**：从可视化到计算  
+            8. **🧬 激酶相似性**：理解激酶选择性  
+            9. **⚙️ 自动化流程**：一键全流程综合评估  
+            10. **📊 模型与系统**：模型性能、架构、项目背景全览  
             ---
             *"双核驱动，理形相生"*  
             随机森林（理）与图神经网络（形）相互验证，让AI决策透明可解释。
@@ -1135,17 +1146,19 @@ def render_sidebar():
         # 功能导航指南
         with st.expander("📖 功能导航指南", expanded=False):
             st.markdown("""
-            - **🧪 分子预测**：核心活性预测，支持单分子/批量
+            - **📦 数据获取**：从 ChEMBL/PubChem 获取化合物，一键送入分析流程
+            - **🧪 分子预测**：核心活性预测，支持单分子/批量/双模型对比
             - **🛡️ 药物筛选**：成药性评估（Lipinski）与毒性警报（PAINS/Brenk）
             - **🔍 化学依据**：分子性质计算、相似性搜索、表示对比
             - **🎯 药效团设计**：提取活性特征，生成 3D 药效团模型
-            - **🔗 3D 结构**：蛋白-配体相互作用可视化
-            - **📊 模型分析**：模型性能、特征重要性、混淆矩阵
-            - **📦 数据获取**：从 ChEMBL/PubChem 获取化合物，一键送入分析流程
             - **🧩 分子聚类**：Butina 聚类 + UMAP 可视化，探索化学空间
-            - **⚙️ 自动化流程**：一键全流程筛选，综合评估成药潜力
-            - **🔬 技术详情**：系统架构、技术栈、特征工程对比
-            - **📚 关于项目**：背景、特色、文件清单、致谢
+            - **🧩 公共子结构**：最大公共子结构（MCS）分析，发现共同骨架
+            - **🔗 3D 结构**：蛋白-配体复合物交互式 3D 渲染
+            - **💊 蛋白-配体作用**：氢键、疏水、π-π 堆积等相互作用检测
+            - **🔗 分子对接**：AutoDock Vina 对接模拟，预测结合姿态
+            - **🧬 激酶相似性**：激酶组序列/结构相似性分析
+            - **⚙️ 自动化流程**：预测→筛选→药效团→相似性一键串联
+            - **📊 模型与系统**：模型性能 + 系统架构 + 项目背景（三合一）
             """)
 
         # 系统信息
@@ -1220,25 +1233,22 @@ def page_home():
 # 主程序入口 - st.navigation
 # ============================================================
 def main():
-    """主程序入口"""
-    # 构建页面列表（包含首页）
+    """主程序入口 —— 标签页按 AIDD 认知逻辑编排"""
     pages = [
         st.Page(page_home, title="🏠 首页"),
+        st.Page(show_data_acquisition, title="📦 数据获取"),
         st.Page(page_molecular_prediction, title="🧪 分子预测"),
         st.Page(page_drug_screening, title="🛡️ 药物筛选"),
         st.Page(page_chem_insight, title="🔍 化学依据"),
         st.Page(page_pharmacophore, title="🎯 药效团设计"),
-        st.Page(page_3d_structure, title="🔗 3D结构"),
-        st.Page(page_model_analysis, title="📊 模型分析"),
         st.Page(show_clustering_page, title="🧩 分子聚类"),
-        st.Page(show_data_acquisition, title="📦 数据获取"),
-        st.Page(page_automated_pipeline, title="⚙️ 自动化流程"),
-        st.Page(page_tech_details, title="🔬 技术详情"),
-        st.Page(page_protein_ligand_interaction, title="💊 蛋白-配体作用"),
-        st.Page(page_kinase_similarity, title="🧬 激酶相似性"),
-        st.Page(page_molecular_docking, title="🔗 分子对接"),
         st.Page(page_mcs_analysis, title="🧩 公共子结构"),
-        st.Page(page_about, title="📚 关于项目"),
+        st.Page(page_3d_structure, title="🔗 3D结构"),
+        st.Page(page_protein_ligand_interaction, title="💊 蛋白-配体作用"),
+        st.Page(page_molecular_docking, title="🔗 分子对接"),
+        st.Page(page_kinase_similarity, title="🧬 激酶相似性"),
+        st.Page(page_automated_pipeline, title="⚙️ 自动化流程"),
+        st.Page(page_model_and_system, title="📊 模型与系统"),
     ]
 
     # 创建顶部导航
