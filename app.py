@@ -138,6 +138,17 @@ except ImportError as e:
         ```
         """)
 
+# ========== 导入分子生成页面 ==========
+try:
+    from pages.page_molecular_generation import page_molecular_generation
+    MOL_GEN_PAGE_AVAILABLE = True
+    logging.info("分子生成页面加载成功")
+except ImportError as e:
+    MOL_GEN_PAGE_AVAILABLE = False
+    logging.error(f"分子生成页面导入失败: {e}")
+    def page_molecular_generation():
+        st.error("分子生成页面加载失败，请检查依赖: pip install torch rdkit-pypi")
+
 # ========== 导入批量对接页面 ==========
 try:
     from pages.page_batch_docking import page_batch_docking
@@ -1430,6 +1441,7 @@ def main():
         st.Page(page_molecular_dynamics, title="⚛️ 分子动力学"),
         st.Page(page_mmgbsa, title="⚛️ MM-GBSA"),
         st.Page(page_kinase_similarity, title="🧬 激酶相似性"),
+        st.Page(page_molecular_generation, title="🧬 分子生成"),
         st.Page(page_automated_pipeline, title="⚙️ 自动化流程"),
         st.Page(page_model_and_system, title="📊 模型与系统"),
     ]
