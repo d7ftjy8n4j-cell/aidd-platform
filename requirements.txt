@@ -31,6 +31,15 @@ torch-geometric==2.4.0
 matplotlib>=3.7.0
 pillow>=10.0.0
 plotly>=5.18.0
+seaborn>=0.12.0
 setuptools>=68.0.0
 rich>=13.0.0
 markdown-it-py>=2.2.0
+
+# ========== 蛋白-配体相互作用分析 ==========
+plip>=2.3.0
+nglview>=3.1.0
+ipywidgets>=8.0.0
+
+# ========== 激酶结合模式相似性 (KLIFS) ==========
+opencadd>=0.6.0

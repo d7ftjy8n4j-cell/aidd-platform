@@ -85,6 +85,28 @@ except ImportError as e:
     def show_clustering_page():
         st.error("分子聚类页面加载失败，请检查 pages/page_clustering.py 文件")
 
+# ========== 导入蛋白-配体相互作用页面 ==========
+try:
+    from pages.protein_ligand_interaction import page_protein_ligand_interaction
+    PLIP_PAGE_AVAILABLE = True
+    logging.info("蛋白-配体相互作用页面加载成功")
+except ImportError as e:
+    PLIP_PAGE_AVAILABLE = False
+    logging.error(f"蛋白-配体相互作用页面导入失败: {e}")
+    def page_protein_ligand_interaction():
+        st.error("蛋白-配体相互作用页面加载失败，请检查依赖: pip install plip nglview")
+
+# ========== 导入激酶相似性页面 ==========
+try:
+    from pages.kinase_similarity import page_kinase_similarity
+    KINASE_PAGE_AVAILABLE = True
+    logging.info("激酶相似性页面加载成功")
+except ImportError as e:
+    KINASE_PAGE_AVAILABLE = False
+    logging.error(f"激酶相似性页面导入失败: {e}")
+    def page_kinase_similarity():
+        st.error("激酶相似性页面加载失败，请检查依赖: pip install opencadd")
+
 # ========== 导入药效团模块（不使用Streamlit UI） ==========
 try:
     import pharmacophore_streamlit
@@ -1164,6 +1186,8 @@ def main():
         st.Page(show_data_acquisition, title="📦 数据获取"),
         st.Page(page_automated_pipeline, title="⚙️ 自动化流程"),
         st.Page(page_tech_details, title="🔬 技术详情"),
+        st.Page(page_protein_ligand_interaction, title="💊 蛋白-配体作用"),
+        st.Page(page_kinase_similarity, title="🧬 激酶相似性"),
         st.Page(page_about, title="📚 关于项目"),
     ]
 
