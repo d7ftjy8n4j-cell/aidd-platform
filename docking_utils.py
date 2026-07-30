@@ -216,8 +216,16 @@ def run_smina(
     -------
     str : smina 标准输出文本
     """
+    # 使用绝对路径确保 Streamlit / Conda 子进程能找到 smina
+    import shutil as _shutil_dock
+    smina_exe = _shutil_dock.which("smina")
+    if smina_exe is None:
+        raise FileNotFoundError(
+            "smina 未在系统 PATH 中找到。请安装: conda install -c conda-forge smina"
+        )
+
     cmd = [
-        "smina",
+        smina_exe,
         "--ligand", str(ligand_path),
         "--receptor", str(protein_path),
         "--out", str(out_path),

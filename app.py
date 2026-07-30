@@ -138,6 +138,26 @@ except ImportError as e:
         ```
         """)
 
+# ========== 导入批量对接页面 ==========
+try:
+    from pages.page_batch_docking import page_batch_docking
+    BATCH_DOCKING_PAGE_AVAILABLE = True
+    logging.info("批量对接页面加载成功")
+except ImportError as e:
+    BATCH_DOCKING_PAGE_AVAILABLE = False
+    logging.error(f"批量对接页面导入失败: {e}")
+    def page_batch_docking():
+        st.warning("⚠️ 批量对接功能当前不可用")
+        st.markdown("""
+        **原因**：批量对接模块依赖 `openbabel` Python 绑定做分子格式转换，
+        该包在 Streamlit Cloud 上无法从源码编译。
+
+        **本地使用**：
+        ```bash
+        conda install -c conda-forge openbabel smina
+        ```
+        """)
+
 # ========== 导入 MCS 最大公共子结构页面 ==========
 try:
     from pages.mcs_analysis import page_mcs_analysis
@@ -407,6 +427,27 @@ def init_predictors():
 
 predictors = init_predictors()
 
+# ========== SHAP & 不确定性工具导入 ==========
+try:
+    from utils.shap_utils import (
+        get_shap_explainer,
+        compute_shap_for_sample,
+        plot_shap_waterfall,
+        plot_shap_bar,
+        format_shap_insights,
+    )
+    from utils.uncertainty_utils import (
+        predict_with_uncertainty,
+        get_confidence_level,
+        plot_uncertainty_distribution,
+        format_uncertainty_summary,
+    )
+    SHAP_AVAILABLE = True
+    logging.info("SHAP & 不确定性模块加载成功")
+except ImportError as e:
+    SHAP_AVAILABLE = False
+    logging.warning(f"SHAP/不确定性模块不可用: {e}")
+
 # ========== 结果显示辅助函数 ==========
 def _build_comparison_row(result, model_type, perf):
     prediction_label = "活性" if result['prediction'] == 1 else "非活性"
@@ -537,6 +578,109 @@ def compare_results(rf_result, gnn_result):
                 """)
 
 # ============================================================
+# SHAP + 不确定性渲染（仅当 RF 模型参与预测时调用）
+# ============================================================
+
+def _render_shap_uncertainty_section(rf_predictor, smiles, rf_result):
+    """在预测结果下方渲染可折叠的 SHAP 解释 + 不确定性评估。"""
+    import numpy as np
+
+    with st.expander("🔍 模型解释性分析 (SHAP + 不确定性)", expanded=False):
+        st.markdown("""
+        **本模块提供两个维度的模型可解释性：**
+        - **SHAP 特征贡献**：展示每个分子描述符如何推高/拉低活性预测
+        - **不确定性估计**：通过随机森林内部 100 棵决策树的共识程度评估预测可信度
+        """)
+
+        tab_shap, tab_uncertainty = st.tabs(["SHAP 特征解释", "预测不确定性"])
+
+        # ---- 获取特征向量 ----
+        try:
+            features = rf_predictor.smiles_to_features(smiles)
+            feature_names = getattr(rf_predictor, 'feature_names',
+                                    [f"F{i}" for i in range(features.shape[0])])
+        except Exception as e:
+            st.error(f"无法计算分子描述符: {e}")
+            return
+
+        # ---- Tab 1: SHAP ----
+        with tab_shap:
+            st.subheader("特征贡献分析")
+            st.caption(
+                "SHAP 瀑布图展示从基线预测到最终预测的逐步贡献。"
+                "红色条推高活性预测，蓝色条拉低活性预测。"
+            )
+
+            try:
+                explainer = get_shap_explainer(rf_predictor.model)
+                shap_result = compute_shap_for_sample(
+                    explainer, features, feature_names
+                )
+
+                # 瀑布图
+                fig_waterfall = plot_shap_waterfall(shap_result)
+                st.pyplot(fig_waterfall)
+
+                # 文字摘要
+                st.markdown(format_shap_insights(shap_result))
+
+                # 条形图
+                with st.expander("📊 查看特征重要性条形图"):
+                    fig_bar = plot_shap_bar(shap_result)
+                    st.pyplot(fig_bar)
+
+            except Exception as e:
+                st.warning(f"SHAP 分析失败: {e}")
+
+        # ---- Tab 2: 不确定性 ----
+        with tab_uncertainty:
+            st.subheader("预测不确定性评估")
+            st.caption(
+                "随机森林由 100 棵决策树组成。"
+                "树间预测的离散程度反映模型对该分子的「熟悉程度」。"
+            )
+
+            try:
+                unc_result = predict_with_uncertainty(
+                    rf_predictor.model, features
+                )
+
+                # 置信度卡片
+                level, icon, msg = get_confidence_level(
+                    unc_result["std_proba"][0]
+                )
+
+                # 指标卡片
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric(
+                        "平均活性概率",
+                        f"{unc_result['mean_proba'][0]:.4f}",
+                    )
+                with col2:
+                    st.metric(
+                        "标准差 (不确定性)",
+                        f"± {unc_result['std_proba'][0]:.4f}",
+                    )
+                with col3:
+                    st.metric(
+                        "置信度等级",
+                        f"{icon} {level}",
+                    )
+
+                st.info(f"**{icon} {level}置信度** — {msg}")
+
+                # 分布直方图
+                try:
+                    fig_dist = plot_uncertainty_distribution(unc_result)
+                    st.pyplot(fig_dist)
+                except Exception:
+                    pass  # 非关键，忽略绘图失败
+
+            except Exception as e:
+                st.warning(f"不确定性计算失败: {e}")
+
+# ============================================================
 # 页面函数定义 - 每个标签页封装为一个独立函数
 # ============================================================
 
@@ -584,6 +728,8 @@ def page_molecular_prediction():
             with st.spinner("正在分析分子..."):
                 status_text.text("准备模型...")
                 progress_bar.progress(10)
+
+                rf_result = None  # 预初始化，供后续 SHAP 分析使用
 
                 if actual_prediction_mode.startswith("🤖 标准模式"):
                     status_text.text("随机森林预测中...")
@@ -656,6 +802,17 @@ def page_molecular_prediction():
 
                 progress_bar.progress(100)
                 status_text.text("✅ 预测完成！")
+
+            # ========== 模型解释性分析 (SHAP + 不确定性) ==========
+            if (SHAP_AVAILABLE
+                    and rf_result is not None
+                    and rf_result.get('success')
+                    and 'rf' in predictors):
+                _render_shap_uncertainty_section(
+                    predictors['rf'],
+                    smiles_clean,
+                    rf_result,
+                )
 
         except Exception as e:
             logging.error(f"预测过程出错: {e}")
@@ -1269,6 +1426,7 @@ def main():
         st.Page(page_3d_structure, title="🔗 3D结构"),
         st.Page(page_protein_ligand_interaction, title="💊 蛋白-配体作用"),
         st.Page(page_molecular_docking, title="🔗 分子对接"),
+        st.Page(page_batch_docking, title="🧩 批量对接"),
         st.Page(page_molecular_dynamics, title="⚛️ 分子动力学"),
         st.Page(page_mmgbsa, title="⚛️ MM-GBSA"),
         st.Page(page_kinase_similarity, title="🧬 激酶相似性"),
