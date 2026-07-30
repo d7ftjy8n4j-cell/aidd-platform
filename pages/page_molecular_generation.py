@@ -15,6 +15,8 @@ import numpy as np
 import streamlit as st
 import logging
 
+from components.knime_export import knime_export_section
+
 # RDKit 用于 2D 结构渲染
 try:
     from rdkit import Chem
@@ -371,6 +373,16 @@ def page_molecular_generation():
                 "text/plain",
                 key="molgen_dl_txt",
             )
+
+            # KNIME 导出
+            if valid:
+                import pandas as _pd
+                _df = _pd.DataFrame(valid)
+                knime_export_section(
+                    _df,
+                    title="分子生成结果",
+                    key_prefix="molgen_knime",
+                )
 
         # ---- 无效 SMILES (折叠) ----
         if invalid:

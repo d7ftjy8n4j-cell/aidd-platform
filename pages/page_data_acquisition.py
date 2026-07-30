@@ -14,6 +14,7 @@ sys.path.append(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 )
 from utils.data_fetcher import DataFetcher, CompoundRecord, FetchResult
+from components.knime_export import knime_export_section
 
 
 def show_data_acquisition():
@@ -307,6 +308,18 @@ def _render_fetch_result(fetch_result: FetchResult):
             st.caption("RDKit 未安装，结构预览不可用")
         except Exception as e:
             st.caption(f"结构预览不可用: {e}")
+
+    # KNIME 导出
+    smiles_list = [
+        comp.smiles for comp in fetch_result.compounds if comp.smiles
+    ]
+    if smiles_list:
+        knime_export_section(
+            pd.DataFrame({"smiles": smiles_list}),
+            title="数据获取结果",
+            key_prefix="data_knime",
+            metadata={"source": fetch_result.source},
+        )
 
 
 # ---- 页面入口 ----

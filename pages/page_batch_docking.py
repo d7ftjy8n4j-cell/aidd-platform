@@ -12,6 +12,8 @@ import numpy as np
 import streamlit as st
 import logging
 
+from components.knime_export import knime_export_section
+
 
 def page_batch_docking():
     """批量对接与结果对比主函数"""
@@ -498,6 +500,19 @@ def _render_batch_results(result, compact=False):
             f"batch_docking_poses_{result['pdb_id']}.zip",
             "application/zip",
             key="batch_dl_zip",
+        )
+
+    # KNIME 导出
+    if results_df is not None and not results_df.empty:
+        knime_export_section(
+            results_df,
+            title="批量对接结果",
+            key_prefix="batch_dock_knime",
+            metadata={
+                "pdb_id": result.get("pdb_id", ""),
+                "exhaustiveness": exhaustiveness,
+                "num_modes": num_modes,
+            },
         )
 
 

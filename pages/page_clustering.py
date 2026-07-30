@@ -21,6 +21,7 @@ sys.path.append(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 )
 from utils.cluster_engine import ClusterEngine, ClusteringSummary
+from components.knime_export import knime_export_section
 
 
 def show_clustering_page():
@@ -366,6 +367,23 @@ def show_clustering_page():
                 st.session_state.pop("pipeline_results", None)
                 st.session_state.pop("pipeline_smiles_list", None)
                 st.rerun()
+
+    # KNIME 导出
+    try:
+        export_rows = []
+        for r in summary.results:
+            row = {"cluster_id": r.cluster_id, "size": r.size}
+            if hasattr(r, "centroid_smiles"):
+                row["smiles"] = r.centroid_smiles
+            export_rows.append(row)
+        if export_rows:
+            knime_export_section(
+                pd.DataFrame(export_rows),
+                title="聚类分析结果",
+                key_prefix="cluster_knime",
+            )
+    except Exception:
+        pass
 
 
 if __name__ == "__main__":

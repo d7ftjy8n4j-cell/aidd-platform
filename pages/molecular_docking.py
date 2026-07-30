@@ -8,6 +8,8 @@ import subprocess
 import pandas as pd
 import streamlit as st
 
+from components.knime_export import knime_export_section
+
 
 def page_molecular_docking():
     """分子对接与虚拟筛选主函数"""
@@ -290,6 +292,21 @@ def page_molecular_docking():
                 mime="chemical/x-mdl-sdfile",
                 key="docking_download_sdf_cached",
             )
+
+            # KNIME 导出
+            if cached.get("results"):
+                scores = [r[1] for r in cached["results"] if len(r) > 1]
+                if scores and cached.get("smiles"):
+                    import pandas as _pd
+                    _df = _pd.DataFrame([{
+                        "smiles": cached["smiles"],
+                        "docking_score": scores[0],
+                    }])
+                    knime_export_section(
+                        _df,
+                        title="分子对接结果",
+                        key_prefix="dock_knime",
+                    )
 
     # ---------- 说明与帮助 ----------
     st.divider()

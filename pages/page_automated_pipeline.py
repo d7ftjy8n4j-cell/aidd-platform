@@ -11,6 +11,7 @@ import time
 from datetime import datetime
 
 from utils.pipeline import Pipeline, SingleMoleculeResult
+from components.knime_export import knime_export_section
 
 
 @st.cache_resource
@@ -273,6 +274,28 @@ def _render_pipeline_results(pipeline: Pipeline):
         st.session_state.pop('pipeline_results', None)
         st.session_state.pop('pipeline_smiles_list', None)
         st.rerun()
+
+    # KNIME 导出
+    if results is not None and len(results) > 0:
+        try:
+            export_rows = []
+            for r in results:
+                row = {"smiles": r.smiles}
+                for attr in dir(r):
+                    if not attr.startswith("_") and attr != "smiles":
+                        val = getattr(r, attr, None)
+                        if isinstance(val, (str, int, float, bool)) and val is not None:
+                            row[attr] = val
+                export_rows.append(row)
+            if export_rows:
+                import pandas as _pd
+                knime_export_section(
+                    _pd.DataFrame(export_rows),
+                    title="自动化流程结果",
+                    key_prefix="pipeline_knime",
+                )
+        except Exception:
+            pass
 
 
 def _show_detailed_report(pipeline: Pipeline, result: SingleMoleculeResult, idx: int = 1):
