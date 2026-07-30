@@ -14,6 +14,7 @@ import subprocess
 import urllib.request
 from pathlib import Path
 
+import numpy as np
 import streamlit as st
 
 # ---------- 懒加载重型依赖 ----------
@@ -107,64 +108,77 @@ def smiles_to_pdbqt(smiles: str, pdbqt_path: str, pH: float = 7.4):
     molecule.write("pdbqt", str(pdbqt_path), overwrite=True)
 
 
-# ---------- 3. 从 PDB ID 下载结构 ----------
+# ---------- 3. PDB 下载与纯文本解析 ----------
 
-def fetch_structure(pdb_id: str):
+PDB_CACHE_DIR = os.path.join(tempfile.gettempdir(), "pdb_cache")
+
+
+def _download_pdb(pdb_id: str) -> str:
+    """从 RCSB 下载 PDB 文件并缓存到本地临时目录"""
+    os.makedirs(PDB_CACHE_DIR, exist_ok=True)
+    pdb_path = os.path.join(PDB_CACHE_DIR, f"{pdb_id}.pdb")
+    if not os.path.exists(pdb_path):
+        pdb_url = f"https://files.rcsb.org/download/{pdb_id}.pdb"
+        urllib.request.urlretrieve(pdb_url, pdb_path)
+    return pdb_path
+
+
+def _parse_pdb_for_docking(pdb_path: str, ligand_resname: str = None, buffer: float = 5.0):
     """
-    从 RCSB PDB 下载结构，返回 MDAnalysis Universe
+    纯文本解析 PDB 文件，不依赖 opencadd / biopython。
 
-    Parameters
-    ----------
-    pdb_id : str
-        4 位 PDB ID（如 "2ITO"）
+    1. 提取所有 ATOM 行 → 写入蛋白 PDB 临时文件
+    2. 查找 HETATM 行（非水） → 计算配体坐标口袋
 
-    Returns
-    -------
-    mda.Universe 或类似结构对象
+    返回:
+        (protein_pdb_path, pocket_dict, detected_ligand_resname)
     """
-    try:
-        from opencadd.structure.core import Structure
-    except ImportError:
-        raise ImportError("opencadd 未安装，请执行: pip install opencadd")
+    protein_lines = []
+    ligand_coords = []
+    detected_resname = ligand_resname
 
-    structure = Structure.from_pdbid(pdb_id)
-    # 确保有 elements 属性
-    if not hasattr(structure.atoms, "elements"):
-        structure.add_TopologyAttr("elements", structure.atoms.types)
-    return structure
+    with open(pdb_path, "r") as f:
+        for line in f:
+            if line.startswith("ATOM") or line.startswith("HETATM"):
+                rec = line[0:6].strip()
+                resname = line[17:20].strip()
 
+                if rec == "ATOM":
+                    protein_lines.append(line)
+                elif rec == "HETATM" and resname != "HOH":
+                    # 发现第一个非水配体时自动确定残基名
+                    if detected_resname is None:
+                        detected_resname = resname
+                    if ligand_resname is None or resname == ligand_resname:
+                        try:
+                            x = float(line[30:38])
+                            y = float(line[38:46])
+                            z = float(line[46:54])
+                            ligand_coords.append([x, y, z])
+                        except ValueError:
+                            continue
 
-# ---------- 4. 计算结合口袋（基于共晶配体） ----------
+    if not protein_lines:
+        raise ValueError(f"PDB 文件中没有蛋白 ATOM 记录: {pdb_path}")
 
-def calculate_pocket_from_ligand(structure, ligand_resname: str, buffer: float = 5.0):
-    """
-    基于共晶配体坐标计算对接盒子的中心与尺寸
+    # 写蛋白 PDB
+    fd, protein_pdb = tempfile.mkstemp(suffix=".pdb")
+    with os.fdopen(fd, "w") as f:
+        f.writelines(protein_lines)
 
-    Parameters
-    ----------
-    structure : MDAnalysis Universe
-        蛋白-配体复合物结构
-    ligand_resname : str
-        配体残基名（如 "IRE"）
-    buffer : float
-        盒子各方向缓冲距离（Å），默认 5.0
+    # 计算口袋
+    if len(ligand_coords) == 0:
+        raise ValueError(
+            f"未找到共晶配体残基 '{detected_resname or ligand_resname}'。"
+            f" 请手动指定 ligand_resname 参数或使用包含配体的 PDB。"
+        )
 
-    Returns
-    -------
-    dict : {"center": [x, y, z], "size": [sx, sy, sz]}
-    """
-    ligand = structure.select_atoms(f"resname {ligand_resname}")
-    if len(ligand) == 0:
-        raise ValueError(f"未找到配体残基: {ligand_resname}，请检查残基名或手动指定")
+    coords = np.array(ligand_coords)
+    center = ((coords.max(axis=0) + coords.min(axis=0)) / 2).tolist()
+    size = (coords.max(axis=0) - coords.min(axis=0) + buffer).tolist()
 
-    positions = ligand.positions
-    center = (positions.max(axis=0) + positions.min(axis=0)) / 2
-    size = positions.max(axis=0) - positions.min(axis=0) + buffer
-
-    return {
-        "center": center.tolist(),
-        "size": size.tolist(),
-    }
+    pocket = {"center": center, "size": size}
+    return protein_pdb, pocket, detected_resname
 
 
 # ---------- 5. 执行 Smina 对接 ----------
@@ -299,44 +313,27 @@ def run_docking(
         raise ImportError("nglview 未安装，请执行: pip install nglview")
 
     import nglview as nv
-    from opencadd.structure.core import Structure
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp = Path(tmpdir)
 
-        # ----- 步骤 1: 获取蛋白结构 -----
+        # ----- 步骤 1: 获取蛋白 PDB + 解析口袋 -----
         if pdb_id:
-            structure = fetch_structure(pdb_id)
-            protein_pdb = tmp / "protein.pdb"
-            structure.select_atoms("protein").write(str(protein_pdb))
-
-            # 自动检测配体残基名（非蛋白、非水的第一个残基）
+            raw_pdb_path = _download_pdb(pdb_id)
+            protein_pdb, pocket, detected_resname = _parse_pdb_for_docking(
+                raw_pdb_path, ligand_resname, buffer=5.0
+            )
             if ligand_resname is None:
-                not_protein = structure.select_atoms("not protein and not resname HOH")
-                if len(not_protein) > 0:
-                    all_resnames = set(not_protein.resnames)
-                    if all_resnames:
-                        ligand_resname = sorted(all_resnames)[0]
-                else:
-                    raise ValueError(
-                        "未找到共晶配体残基。请手动指定 ligand_resname 参数"
-                    )
-
+                ligand_resname = detected_resname
         elif pdb_content:
-            protein_pdb = tmp / "protein.pdb"
-            with open(protein_pdb, "wb") as f:
-                f.write(pdb_content)
-            # 从已保存文件读取结构以检测配体
-            structure = Structure.from_pdb(str(protein_pdb))
-            if not hasattr(structure.atoms, "elements"):
-                structure.add_TopologyAttr("elements", structure.atoms.types)
-
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".pdb") as tmpf:
+                tmpf.write(pdb_content)
+                raw_pdb_path = tmpf.name
+            protein_pdb, pocket, detected_resname = _parse_pdb_for_docking(
+                raw_pdb_path, ligand_resname, buffer=5.0
+            )
             if ligand_resname is None:
-                not_protein = structure.select_atoms("not protein and not resname HOH")
-                if len(not_protein) > 0:
-                    all_resnames = set(not_protein.resnames)
-                    if all_resnames:
-                        ligand_resname = sorted(all_resnames)[0]
+                ligand_resname = detected_resname
         else:
             raise ValueError("请提供 PDB ID 或 PDB 文件内容")
 
@@ -350,10 +347,7 @@ def run_docking(
         ligand_pdbqt = tmp / "ligand.pdbqt"
         smiles_to_pdbqt(ligand_smiles, str(ligand_pdbqt))
 
-        # ----- 步骤 4: 计算结合口袋 -----
-        pocket = calculate_pocket_from_ligand(structure, ligand_resname)
-
-        # ----- 步骤 5: 执行 Smina 对接 -----
+        # ----- 步骤 4: 执行 Smina 对接 (口袋已在步骤 1 解析) -----
         sdf_out = tmp / "docking_poses.sdf"
         output_text = run_smina(
             str(ligand_pdbqt),
@@ -365,10 +359,10 @@ def run_docking(
             exhaustiveness,
         )
 
-        # ----- 步骤 6: 解析结果 -----
+        # ----- 步骤 5: 解析结果 -----
         results = parse_smina_output(output_text)
 
-        # ----- 步骤 7: 创建 NGLView 3D 可视化 -----
+        # ----- 步骤 6: NGLView 3D 可视化 -----
         view = nv.show_file(str(sdf_out))
         view.add_representation("cartoon", selection="protein")
         view.add_representation("licorice", selection="ligand")

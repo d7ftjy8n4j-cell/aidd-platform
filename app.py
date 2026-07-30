@@ -105,7 +105,7 @@ except ImportError as e:
     KINASE_PAGE_AVAILABLE = False
     logging.error(f"激酶相似性页面导入失败: {e}")
     def page_kinase_similarity():
-        st.error("激酶相似性页面加载失败，请检查依赖: pip install opencadd")
+        st.error("激酶相似性页面加载失败，请检查依赖: pip install requests")
 
 # ========== 导入分子对接页面 ==========
 try:
@@ -137,7 +137,7 @@ import re
 # ========== 3D结构可视化导入 ==========
 try:
     from structure_viz import StructureVisualizer
-    from stmol import showmol
+    import py3Dmol
     VIZ_AVAILABLE = True
     VIZ_ERROR = None
 except Exception as e:
@@ -146,6 +146,12 @@ except Exception as e:
     import traceback
     logging.error(f"3D可视化模块导入失败: {e}")
     logging.error(traceback.format_exc())
+
+
+def _render_py3dmol(view, height=500, width=800):
+    """用 py3Dmol 原生渲染到 Streamlit，替代 stmol.showmol()"""
+    html_str = view._make_html()
+    st.components.v1.html(html_str, height=height, width=width)
 
 # ========== 配置类 ==========
 class Config:
@@ -869,7 +875,7 @@ def page_3d_structure():
                     surface_opacity=current_render['opacity']
                 )
                 if view:
-                    showmol(view, height=600, width=800)
+                    _render_py3dmol(view, height=600, width=800)
                 else:
                     st.error("视图生成失败")
                 st.caption("💡 操作提示: 鼠标左键旋转，右键/Ctrl+左键平移，滚轮缩放。")
@@ -960,7 +966,7 @@ def page_tech_details():
     | 机器学习 | scikit-learn | 随机森林模型 |
     | 深度学习 | PyTorch + PyTorch Geometric | GNN模型 |
     | 化学信息学 | RDKit | 分子特征与可视化 |
-    | 3D可视化 | py3Dmol + stmol | 蛋白-配体结构 |
+    | 3D可视化 | py3Dmol | 蛋白-配体结构 |
 
     ### 📊 模型性能对比
 

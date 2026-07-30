@@ -4,7 +4,7 @@
 
 功能：
 1. 通用蛋白-配体相互作用分析 (基于 PLIP + NGLView)
-2. 激酶 IFP 指纹相似性分析 (基于 opencadd + KLIFS)
+2. 激酶 IFP 指纹相似性分析 (基于 KLIFS REST API)
 """
 import os
 import tempfile
@@ -12,6 +12,7 @@ import urllib.request
 import logging
 import numpy as np
 import pandas as pd
+import requests
 import streamlit as st
 from sklearn.metrics import pairwise_distances
 import matplotlib.pyplot as plt
@@ -21,11 +22,9 @@ logger = logging.getLogger(__name__)
 # ---------- 懒加载标记 ----------
 _PLIP_AVAILABLE = False
 _NGLVIEW_AVAILABLE = False
-_OPENCADD_AVAILABLE = False
 _SEABORN_AVAILABLE = False
 _PLIP_IMPORT_ERROR = None
 _NGLVIEW_IMPORT_ERROR = None
-_OPENCADD_IMPORT_ERROR = None
 _SEABORN_IMPORT_ERROR = None
 
 
@@ -54,19 +53,6 @@ def _ensure_nglview():
             _NGLVIEW_IMPORT_ERROR = str(e)
             logger.warning(f"NGLView 导入失败: {e}")
     return _NGLVIEW_AVAILABLE
-
-
-def _ensure_opencadd():
-    """延迟导入 opencadd"""
-    global _OPENCADD_AVAILABLE, _OPENCADD_IMPORT_ERROR
-    if not _OPENCADD_AVAILABLE and _OPENCADD_IMPORT_ERROR is None:
-        try:
-            from opencadd.databases.klifs import setup_remote  # noqa: F401
-            _OPENCADD_AVAILABLE = True
-        except ImportError as e:
-            _OPENCADD_IMPORT_ERROR = str(e)
-            logger.warning(f"opencadd 导入失败: {e}")
-    return _OPENCADD_AVAILABLE
 
 
 def _ensure_seaborn():
@@ -177,51 +163,120 @@ def analyze_plip(pdb_id=None, pdb_content=None):
     return df, html_str, pdb_path
 
 
-# ========== 模块2：激酶 IFP 指纹相似性 (KLIFS) ==========
+# ========== 模块2：激酶 IFP 指纹相似性 (KLIFS REST API) ==========
+
+# ---- KLIFS API 常量 ----
+KLIFS_BASE_URL = "https://klifs.vu-compmedchem.nl/api/v2"
+
+
+@st.cache_data(ttl=86400)  # 缓存 24 小时
+def _klifs_api_get(endpoint: str, params: dict = None):
+    """
+    统一的 KLIFS API 调用封装，带缓存。
+    """
+    url = f"{KLIFS_BASE_URL}/{endpoint.lstrip('/')}"
+    try:
+        resp = requests.get(url, params=params, timeout=30)
+        resp.raise_for_status()
+        return resp.json()
+    except requests.RequestException as e:
+        logger.error(f"KLIFS API 请求失败 [{url}]: {e}")
+        return None
+
+
+def _fetch_kinase_id(kinase_name: str) -> int | None:
+    """
+    通过激酶名称查找 KLIFS 内部 ID。
+    KLIFS API: GET /kinases?kinase_name={name}
+    """
+    kinases = _klifs_api_get("kinases", {"kinase_name": kinase_name})
+    if kinases and isinstance(kinases, list) and len(kinases) > 0:
+        return kinases[0].get("kinase_ID")
+    return None
+
+
+def _fetch_structures_for_kinase_id(kinase_id: int) -> list:
+    """
+    获取指定激酶的高质量结构列表。
+    KLIFS API: GET /structures?kinase_ID={id}
+    过滤条件：人源、分辨率 ≤ 3.0 Å、质量分 ≥ 6、DFG-in
+    """
+    structures = _klifs_api_get("structures", {"kinase_ID": kinase_id})
+    if not structures or not isinstance(structures, list):
+        return []
+
+    filtered = []
+    for s in structures:
+        if (s.get("species") == "Human"
+                and s.get("resolution", 999) <= 3.0
+                and s.get("quality_score", 0) >= 6
+                and s.get("DFG") == "in"):
+            filtered.append(s)
+    return filtered
+
+
+def _fetch_ifp_for_structure(structure_id: int) -> str | None:
+    """
+    获取某个结构的相互作用指纹 (IFP)。
+    KLIFS API: GET /interactions/structure?structure_ID={id}
+    返回 85 位的 0/1 字符串。
+    """
+    data = _klifs_api_get("interactions/structure", {"structure_ID": structure_id})
+    if data:
+        # KLIFS API 返回单条记录（dict）而非列表
+        if isinstance(data, dict):
+            return data.get("fingerprint", None)
+        elif isinstance(data, list) and len(data) > 0:
+            return data[0].get("fingerprint", None)
+    return None
+
 
 @st.cache_data(ttl=86400)  # 缓存 24 小时
 def fetch_klifs_ifps(kinase_names):
     """
-    从 KLIFS 数据库获取激酶的相互作用指纹 (IFP)。
+    使用 KLIFS REST API 获取激酶的相互作用指纹 (IFP)。
 
     参数:
-        kinase_names : list[str]  激酶名称列表
+        kinase_names : list[str]  激酶名称列表（如 ["EGFR", "ErbB2"]）
 
     返回:
-        pd.DataFrame  包含 IFP 和结构信息的完整数据框
+        pd.DataFrame  包含 IFP 和结构信息的数据框
+                      列: structure_klifs_id, kinase_name, pdb_id, resolution, interaction_fingerprint
     """
-    if not _ensure_opencadd():
-        raise ImportError(
-            f"opencadd 未安装或导入失败。请运行: pip install opencadd\n错误详情: {_OPENCADD_IMPORT_ERROR}"
-        )
+    all_rows = []
 
-    from opencadd.databases.klifs import setup_remote
+    for kinase_name in kinase_names:
+        # Step 1: 查找激酶 ID
+        kinase_id = _fetch_kinase_id(kinase_name)
+        if kinase_id is None:
+            logger.warning(f"在 KLIFS 中未找到激酶: {kinase_name}")
+            continue
 
-    session = setup_remote()
+        # Step 2: 获取结构列表
+        structures = _fetch_structures_for_kinase_id(kinase_id)
+        logger.info(f"[{kinase_name}] 找到 {len(structures)} 个高质量结构")
 
-    # 获取结构
-    structures = session.structures.by_kinase_name(kinase_names=kinase_names)
-    logger.info(f"从 KLIFS 获取到 {len(structures)} 个原始结构")
+        # Step 3: 逐个获取 IFP
+        for s in structures:
+            sid = s.get("structure_ID")
+            if not sid:
+                continue
+            ifp_str = _fetch_ifp_for_structure(sid)
+            if ifp_str:
+                all_rows.append({
+                    "structure.klifs_id": sid,
+                    "kinase.klifs_name": kinase_name,
+                    "pdb_id": s.get("pdb", ""),
+                    "resolution": s.get("resolution", None),
+                    "interaction.fingerprint": ifp_str,
+                })
 
-    # 过滤高质量结构（DFG-in, 分辨率 ≤ 3.0 Å, 质量分 ≥ 6, 人源）
-    structures = structures[
-        (structures["species.klifs"] == "Human") &
-        (structures["structure.dfg"] == "in") &
-        (structures["structure.resolution"] <= 3.0) &
-        (structures["structure.qualityscore"] >= 6)
-    ]
-    logger.info(f"过滤后保留 {len(structures)} 个高质量结构")
-
-    if structures.empty:
+    if not all_rows:
+        logger.warning("未获取到任何 IFP 数据")
         return pd.DataFrame()
 
-    # 获取 IFP
-    structure_ids = structures["structure.klifs_id"].tolist()
-    ifps = session.interactions.by_structure_klifs_id(structure_ids)
-
-    # 合并结构与 IFP
-    result = ifps.merge(structures, on="structure.klifs_id", how="inner")
-    logger.info(f"IFP 合并完成，共 {len(result)} 条记录")
+    result = pd.DataFrame(all_rows)
+    logger.info(f"共获取 {len(result)} 条 IFP 记录，覆盖 {result['kinase.klifs_name'].nunique()} 个激酶")
     return result
 
 
