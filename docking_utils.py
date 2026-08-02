@@ -35,19 +35,19 @@ def _ensure_openbabel():
     return _openbabel_available
 
 
-_nglview_available = None
+_py3dmol_available = None
 
 
-def _ensure_nglview():
-    """确保 nglview 已安装（懒加载）"""
-    global _nglview_available
-    if _nglview_available is not None:
-        return _nglview_available
+def _ensure_py3dmol():
+    """确保 py3Dmol 已安装（懒加载）"""
+    global _py3dmol_available
+    if _py3dmol_available is not None:
+        return _py3dmol_available
     try:
-        import nglview  # noqa: F811
-        _nglview_available = True
+        import py3Dmol  # noqa: F811
+        _py3dmol_available = True
     except ImportError:
-        _nglview_available = False
+        _py3dmol_available = False
     return _nglview_available
 
 
@@ -310,17 +310,17 @@ def run_docking(
     -------
     dict : {
         "results":      对接结果列表,
-        "view":         nglview 3D 可视化对象,
+        "view":         py3Dmol 3D 可视化对象,
         "sdf_data":     SDF 文件二进制内容,
         "output_text":  smina 原始输出文本,
     }
     """
     if not _ensure_openbabel():
         raise ImportError("openbabel 未安装，请执行: pip install openbabel")
-    if not _ensure_nglview():
-        raise ImportError("nglview 未安装，请执行: pip install nglview")
+    if not _ensure_py3dmol():
+        raise ImportError("py3Dmol 未安装，请执行: pip install py3Dmol")
 
-    import nglview as nv
+    import py3Dmol
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp = Path(tmpdir)
@@ -370,10 +370,13 @@ def run_docking(
         # ----- 步骤 5: 解析结果 -----
         results = parse_smina_output(output_text)
 
-        # ----- 步骤 6: NGLView 3D 可视化 -----
-        view = nv.show_file(str(sdf_out))
-        view.add_representation("cartoon", selection="protein")
-        view.add_representation("licorice", selection="ligand")
+        # ----- 步骤 6: py3Dmol 3D 可视化 -----
+        with open(sdf_out, "r") as f:
+            sdf_str = f.read()
+        view = py3Dmol.view(width=800, height=600)
+        view.addModel(sdf_str, 'sdf')
+        view.setStyle({'model': -1}, {'stick': {}})
+        view.zoomTo()
 
         # ----- 读取 SDF 用于下载 -----
         with open(sdf_out, "rb") as f:

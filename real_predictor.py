@@ -31,7 +31,7 @@ class RealEGFRPredictor:
             current_dir = os.path.dirname(os.path.abspath(__file__))
             print(f"📁 当前目录: {current_dir}")
 
-            # 加载模型（使用兼容numpy 1.24.4的版本）
+            # 加载模型（若依赖环境损坏，则走兜底逻辑）
             model_path = os.path.join(current_dir, "rf_egfr_model_final.pkl")
             # 如果存在兼容模型，优先使用兼容模型
             compatible_model_path = os.path.join(current_dir, "rf_egfr_model_compatible.pkl")

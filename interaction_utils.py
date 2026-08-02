@@ -21,10 +21,10 @@ logger = logging.getLogger(__name__)
 
 # ---------- 懒加载标记 ----------
 _PLIP_AVAILABLE = False
-_NGLVIEW_AVAILABLE = False
+_PY3DMOL_AVAILABLE = False
 _SEABORN_AVAILABLE = False
 _PLIP_IMPORT_ERROR = None
-_NGLVIEW_IMPORT_ERROR = None
+_PY3DMOL_IMPORT_ERROR = None
 _SEABORN_IMPORT_ERROR = None
 
 
@@ -34,7 +34,6 @@ def _ensure_plip():
     if not _PLIP_AVAILABLE and _PLIP_IMPORT_ERROR is None:
         try:
             from plip.structure.preparation import PDBComplex  # noqa: F401
-            from plip.exchange.report import BindingSiteReport  # noqa: F401
             _PLIP_AVAILABLE = True
         except ImportError as e:
             _PLIP_IMPORT_ERROR = str(e)
@@ -42,17 +41,17 @@ def _ensure_plip():
     return _PLIP_AVAILABLE
 
 
-def _ensure_nglview():
-    """延迟导入 NGLView"""
-    global _NGLVIEW_AVAILABLE, _NGLVIEW_IMPORT_ERROR
-    if not _NGLVIEW_AVAILABLE and _NGLVIEW_IMPORT_ERROR is None:
+def _ensure_py3dmol():
+    """延迟导入 py3Dmol"""
+    global _PY3DMOL_AVAILABLE, _PY3DMOL_IMPORT_ERROR
+    if not _PY3DMOL_AVAILABLE and _PY3DMOL_IMPORT_ERROR is None:
         try:
-            import nglview as nv  # noqa: F401
-            _NGLVIEW_AVAILABLE = True
+            import py3Dmol  # noqa: F401
+            _PY3DMOL_AVAILABLE = True
         except ImportError as e:
-            _NGLVIEW_IMPORT_ERROR = str(e)
-            logger.warning(f"NGLView 导入失败: {e}")
-    return _NGLVIEW_AVAILABLE
+            _PY3DMOL_IMPORT_ERROR = str(e)
+            logger.warning(f"py3Dmol 导入失败: {e}")
+    return _PY3DMOL_AVAILABLE
 
 
 def _ensure_seaborn():
@@ -83,14 +82,13 @@ def analyze_plip(pdb_id=None, pdb_content=None):
         raise ImportError(
             f"PLIP 未安装或导入失败。请运行: pip install plip\n错误详情: {_PLIP_IMPORT_ERROR}"
         )
-    if not _ensure_nglview():
+    if not _ensure_py3dmol():
         raise ImportError(
-            f"NGLView 未安装或导入失败。请运行: pip install nglview\n错误详情: {_NGLVIEW_IMPORT_ERROR}"
+            f"py3Dmol 未安装或导入失败。请运行: pip install py3Dmol\n错误详情: {_PY3DMOL_IMPORT_ERROR}"
         )
 
     from plip.structure.preparation import PDBComplex
-    from plip.exchange.report import BindingSiteReport
-    import nglview as nv
+    import py3Dmol
 
     # 1. 获取 PDB 文件
     if pdb_id:
@@ -115,50 +113,57 @@ def analyze_plip(pdb_id=None, pdb_content=None):
     complex_obj.analyze()
     logger.info(f"PLIP 分析完成，发现 {len(complex_obj.interaction_sets)} 个结合位点")
 
-    # 3. 提取所有相互作用
+    # 3. 提取所有相互作用 (PLIP 3.0 API)
     rows = []
     for site_id, site in complex_obj.interaction_sets.items():
-        report = BindingSiteReport(site)
-        # 氢键
-        for h in report.hbonds_pairs:
+        # 氢键（蛋白供体 + 配体供体）
+        for h in (site.hbonds_pdon or []) + (site.hbonds_ldon or []):
             rows.append({
                 "结合位点": site_id, "类型": "氢键",
-                "蛋白残基": h[0], "配体原子": h[1]
+                "蛋白残基": f"{h.restype}{h.resnr}{h.reschain}",
+                "配体原子": f"{getattr(h, 'restype_l', '')}{getattr(h, 'resnr_l', '')}"
             })
         # 疏水作用
-        for h in report.hydrophobic_pairs:
+        for h in (site.hydrophobic_contacts or []):
             rows.append({
                 "结合位点": site_id, "类型": "疏水作用",
-                "蛋白残基": h[0], "配体原子": h[1]
+                "蛋白残基": f"{h.restype}{h.resnr}{h.reschain}",
+                "配体原子": f"{getattr(h, 'restype_l', '')}{getattr(h, 'resnr_l', '')}"
             })
         # 盐桥
-        for s in report.saltbridge_pairs:
+        for s in (site.saltbridge_lneg or []) + (site.saltbridge_pneg or []):
             rows.append({
                 "结合位点": site_id, "类型": "盐桥",
-                "蛋白残基": s[0], "配体原子": s[1]
+                "蛋白残基": f"{s.restype}{s.resnr}{s.reschain}",
+                "配体原子": f"{getattr(s, 'restype_l', '')}{getattr(s, 'resnr_l', '')}"
             })
         # pi-pi 堆积
-        for p in report.pistacking_pairs:
+        for p in (site.pistacking or []):
             rows.append({
                 "结合位点": site_id, "类型": "π-π堆积",
-                "蛋白残基": p[0], "配体原子": p[1]
+                "蛋白残基": f"{p.restype}{p.resnr}{p.reschain}",
+                "配体原子": f"{getattr(p, 'restype_l', '')}{getattr(p, 'resnr_l', '')}"
             })
         # 卤键
-        for x in report.halogen_pairs:
+        for x in (site.halogen_bonds or []):
             rows.append({
                 "结合位点": site_id, "类型": "卤键",
-                "蛋白残基": x[0], "配体原子": x[1]
+                "蛋白残基": f"{x.restype}{x.resnr}{x.reschain}",
+                "配体原子": f"{getattr(x, 'restype_l', '')}{getattr(x, 'resnr_l', '')}"
             })
 
     df = pd.DataFrame(rows)
     logger.info(f"共提取 {len(df)} 条相互作用记录")
 
-    # 4. 生成 NGLView 3D 可视化
-    view = nv.show_file(pdb_path)
-    view.add_representation('cartoon', selection='protein', color='sstruc')
-    view.add_representation('licorice', selection='ligand')
-    view.add_representation('ball+stick', selection='ligand')
-    html_str = view._repr_html_()
+    # 4. 生成 py3Dmol 3D 可视化
+    with open(pdb_path, 'r') as f:
+        pdb_str = f.read()
+    view = py3Dmol.view(width=800, height=550)
+    view.addModel(pdb_str, 'pdb')
+    view.setStyle({'model': -1}, {'cartoon': {'color': 'spectrum'}})
+    view.setStyle({'hetflag': True}, {'stick': {'radius': 0.3}})
+    view.zoomTo()
+    html_str = view._make_html()
 
     return df, html_str, pdb_path
 

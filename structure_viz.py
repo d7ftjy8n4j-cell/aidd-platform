@@ -2,10 +2,18 @@
 structure_viz.py
 适配 Streamlit 的蛋白质结构可视化工具
 """
-import py3Dmol
 import requests
-from stmol import showmol
 import streamlit as st
+
+try:
+    import py3Dmol
+except Exception:
+    py3Dmol = None
+
+try:
+    from stmol import showmol
+except Exception:
+    showmol = None
 
 class StructureVisualizer:
     def __init__(self, width=800, height=600):
@@ -33,6 +41,9 @@ class StructureVisualizer:
 
     def render_view(self, style='cartoon', color_scheme='spectrum', show_ligand=True, show_surface=False, surface_opacity=0.5):
         if not self.pdb_data:
+            return None
+
+        if py3Dmol is None:
             return None
         
         view = py3Dmol.view(width=self.width, height=self.height)

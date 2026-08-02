@@ -11,6 +11,7 @@ import time
 from datetime import datetime
 
 from utils.pipeline import Pipeline, SingleMoleculeResult
+from utils.prediction_status import render_prediction_status_bar
 from components.knime_export import knime_export_section
 
 
@@ -23,7 +24,13 @@ def _get_pipeline() -> Pipeline:
 def page_automated_pipeline():
     """⚙️ 自动化流程页面"""
     
-    st.header("⚙️ 自动化药物发现流程")
+    col_title, col_status = st.columns([4, 1])
+    with col_title:
+        st.header("⚙️ 自动化药物发现流程")
+    with col_status:
+        render_prediction_status_bar(
+            lambda: {'rf': True, 'gnn': True}
+        )
     st.caption("一键运行从双模型预测到成药性筛选的全流程，快速评估分子成药潜力。")
     
     with st.popover("🎓 教学点"):

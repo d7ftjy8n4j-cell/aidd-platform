@@ -284,6 +284,14 @@ def page_batch_docking():
                     st.code(e.output, language="text")
         except ImportError as e:
             st.error(f"❌ 缺少依赖: {e}")
+            err_msg = str(e)
+            if "No module named" in err_msg:
+                mod = err_msg.split("No module named")[-1].strip().strip("'").strip('"')
+                st.info(f"请执行: conda activate egfr-md && pip install {mod.split('.')[0]}")
+            elif "未安装" in err_msg:
+                st.info(err_msg)
+            else:
+                st.info("请确认已安装: pyarrow openbabel nglview rpds-py")
         except Exception as e:
             st.error(f"❌ 批量对接失败: {e}")
             import traceback

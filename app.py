@@ -217,6 +217,7 @@ import numpy as np
 import joblib
 import json
 import re
+from utils.prediction_status import render_prediction_status_bar
 
 # ========== 3D结构可视化导入 ==========
 try:
@@ -387,19 +388,7 @@ except Exception as e:
         RF_PREDICTOR_AVAILABLE = True
         logging.info("最简兜底预测器加载成功")
 
-# 导入GNN预测器
-try:
-    missing_files = check_gnn_model_files()
-    if missing_files:
-        GNN_PREDICTOR_AVAILABLE = False
-        logging.warning(f"GNN模型文件缺失: {missing_files}")
-    else:
-        from gnn_predictor import GCNPredictor
-        GNN_PREDICTOR_AVAILABLE = True
-        logging.info("GNN预测器导入成功")
-except ImportError as e:
-    GNN_PREDICTOR_AVAILABLE = False
-    logging.error(f"GNN预测器导入失败: {e}")
+# GNN 导入改为懒加载：在 init_predictors() 内部尝试，避免 Streamlit 重渲染时重复导入
 
 # 导入其他模块
 try:
@@ -421,7 +410,10 @@ except ImportError:
 # ========== 初始化预测器 ==========
 @st.cache_resource
 def init_predictors():
+    """懒加载双模型预测器。GNN 导入在函数内完成，避免模块级重复日志。"""
     predictors = {}
+
+    # ---- 随机森林 ----
     if RF_PREDICTOR_AVAILABLE:
         try:
             predictors['rf'] = RealEGFRPredictor()
@@ -429,11 +421,19 @@ def init_predictors():
                 del predictors['rf']
         except Exception as e:
             logging.error(f"RF预测器初始化失败: {e}")
-    if GNN_PREDICTOR_AVAILABLE:
-        try:
+
+    # ---- GNN（懒加载：在此处导入，仅执行一次）----
+    try:
+        missing_files = check_gnn_model_files()
+        if missing_files:
+            logging.warning(f"GNN模型文件缺失: {missing_files}")
+        else:
+            from gnn_predictor import GCNPredictor
             predictors['gnn'] = GCNPredictor(device='cpu')
-        except Exception as e:
-            logging.error(f"GNN预测器初始化失败: {e}")
+            logging.info("GNN预测器导入并初始化成功")
+    except Exception as e:
+        logging.warning(f"GNN预测器不可用: {e}")
+
     return predictors
 
 predictors = init_predictors()
@@ -697,7 +697,13 @@ def _render_shap_uncertainty_section(rf_predictor, smiles, rf_result):
 
 def page_molecular_prediction():
     """🧪 分子活性预测页面"""
-    st.header("🧪 分子活性预测")
+    col_title, col_status = st.columns([4, 1])
+    with col_title:
+        st.header("🧪 分子活性预测")
+    with col_status:
+        render_prediction_status_bar(
+            lambda: {'rf': 'rf' in predictors, 'gnn': 'gnn' in predictors}
+        )
     st.caption("输入 SMILES，选择预测模式，快速评估分子对 EGFR 的抑制活性。双模型对比可提高结果可靠性。")
 
     with st.popover("🎓 教学点"):
@@ -1151,9 +1157,7 @@ def page_model_and_system():
                 st.image(gcn_img_path if os.path.exists(gcn_img_path) else
                         "https://via.placeholder.com/400x200?text=GNN混淆矩阵",
                         caption="GNN模型混淆矩阵")
-            with st.expander("📈 训练曲线"):
-                if os.path.exists(gcn_history_path):
-                    st.image(gcn_history_path, caption="GNN训练历史")
+
 
         st.markdown("---")
         st.subheader("🎯 模型选择建议")
@@ -1240,7 +1244,6 @@ def page_model_and_system():
         ### 📦 资源与致谢
 
         - **数据来源**：[ChEMBL](https://www.ebi.ac.uk/chembl/)（EMBL-EBI）、[PubChem](https://pubchem.ncbi.nlm.nih.gov/)（NCBI）
-        - **教程参考**：[TeachOpenCADD](https://github.com/volkamerlab/TeachOpenCADD)（T001, T007, T033, T035）
         - **开源工具**：RDKit、PyTorch Geometric、Streamlit、scikit-learn
         - **开源协议**：MIT License，仅供学术研究使用
 
@@ -1254,7 +1257,7 @@ def page_model_and_system():
 # 侧边栏函数
 # ============================================================
 def render_sidebar():
-    """渲染侧边栏"""
+    """渲染侧边栏 —— 仅保留全局通用的导航/教学信息，预测状态栏移至相关页面内"""
     with st.sidebar:
         # 添加 Logo（Streamlit 1.54+）
         try:
@@ -1267,57 +1270,10 @@ def render_sidebar():
         st.caption("*双核驱动，理形相生*")
         st.divider()
 
-        st.header("⚙️ 系统配置")
-
-        # 模型状态
-        st.subheader("模型状态")
-        rf_status = "✅ 在线" if 'rf' in predictors else "❌ 离线"
-        gnn_status = "✅ 在线" if 'gnn' in predictors else "❌ 离线"
-        st.write(f"- 随机森林: {rf_status}")
-        st.write(f"- GNN模型: {gnn_status}")
-
-        # 使用统计
-        st.subheader("📈 使用统计")
-        st.metric("总预测次数", st.session_state.prediction_count)
-
-        # 快速操作
-        st.subheader("🔗 快速操作")
-        if st.button("🔄 重置所有预测", use_container_width=True):
-            st.session_state.prediction_count = 0
-            st.rerun()
-        
-        if st.button("📥 导出当前结果", use_container_width=True):
-            if not st.session_state.get('last_smiles'):
-                st.warning("暂无预测结果可导出")
-            else:
-                # 使用 st.dialog 弹窗导出
-                @st.dialog("📥 导出预测结果", icon="📊")
-                def export_dialog():
-                    export_data = {}
-                    if st.session_state.get('last_rf_result'):
-                        rf_result = st.session_state.last_rf_result
-                        if isinstance(rf_result, dict) and 'error' not in rf_result:
-                            export_data['rf'] = rf_result
-                    if st.session_state.get('last_gnn_result'):
-                        gnn_result = st.session_state.last_gnn_result
-                        if isinstance(gnn_result, dict) and gnn_result.get('success', True):
-                            export_data['gnn'] = gnn_result
-                    if export_data:
-                        df = export_results_to_dataframe(export_data)
-                        st.dataframe(df, use_container_width=True, hide_index=True)
-                        csv = df.to_csv(index=False, encoding='utf-8-sig')
-                        filename = f"egfr_prediction_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
-                        st.download_button(label="📥 下载CSV文件", data=csv, file_name=filename, mime="text/csv")
-                    else:
-                        st.warning("没有可用的模型结果")
-                    if st.button("关闭", type="secondary"):
-                        st.rerun()
-                export_dialog()
-
-        # 教学指南
+        # 教学指南（折叠）
         with st.expander("📘 教学指南（新手必读）", expanded=False):
             st.markdown("""
-            **药尘光 · AIDD 学习路径** (13 步)  
+            **药尘光 · AIDD 学习路径** (12 步)  
             1. **📦 数据获取**：从 ChEMBL / PubChem 获取化合物数据  
             2. **🧪 分子预测**：输入 SMILES，体验双引擎对比 + SHAP 解释  
             3. **🧪 分子评估**：成药性筛选 + 理化性质 + 毒性警报（一站式）  
@@ -1334,7 +1290,7 @@ def render_sidebar():
             每个标签页和子标签均有 **🎓 教学弹窗**，点击即可学习相关理论。
             """)
 
-        # 功能导航指南
+        # 功能导航指南（折叠）
         with st.expander("📖 功能导航指南", expanded=False):
             st.markdown("""
             **13 个顶层标签页**（部分内含子标签）：  
@@ -1352,12 +1308,12 @@ def render_sidebar():
             - **📊 模型与系统**：模型性能 + 架构图 + 技术栈 + 项目背景（四合一）  
             """)
 
-        # 系统信息
-        st.subheader("ℹ️ 系统信息")
-        st.write(f"Python: {sys.version.split()[0]}")
-        st.write("Streamlit: 1.28.0")
-        st.write(f"主题: {'🌙 暗色' if st.session_state.theme == 'dark' else '☀️ 亮色'}")
-        st.write(f"工作目录: {os.getcwd()}")
+        # 系统信息（折叠）
+        with st.expander("ℹ️ 系统信息", expanded=False):
+            st.write(f"Python: {sys.version.split()[0]}")
+            st.write("Streamlit: 1.28.0")
+            st.write(f"主题: {'🌙 暗色' if st.session_state.theme == 'dark' else '☀️ 亮色'}")
+            st.write(f"工作目录: {os.getcwd()}")
 
         # 待处理数据提示
         if st.session_state.get("batch_smiles_list"):
@@ -1368,7 +1324,7 @@ def render_sidebar():
         st.divider()
         rating = st.feedback("stars", key="global_feedback")
         if rating is not None:
-            st.caption(f"感谢您的 {int(rating)} 星评价！")
+            st.caption(f"感谢您的 {int(rating) + 1} 星评价！")
 
 
 # ============================================================
@@ -1429,8 +1385,8 @@ def page_home():
                  f"AUC: {rf_perf.get('auc', 'N/A')}" if RF_PREDICTOR_AVAILABLE else "N/A",
                  border=True)
     with col2:
-        st.metric("GNN模型", "就绪" if GNN_PREDICTOR_AVAILABLE else "离线",
-                 f"AUC: {gnn_perf.get('auc', 'N/A')}" if GNN_PREDICTOR_AVAILABLE else "N/A",
+        st.metric("GNN模型", "就绪" if ('gnn' in predictors) else "离线",
+                 f"AUC: {gnn_perf.get('auc', 'N/A')}" if ('gnn' in predictors) else "N/A",
                  border=True)
     with col3:
         st.metric("数据集", "13,286化合物", "50.8%活性", border=True)
@@ -1519,7 +1475,7 @@ def page_docking_unified():
         - **单分子**：精确评估一个候选分子的结合模式
         - **批量**：对化合物库并行对接，按打分排序——即「虚拟筛选」(virtual screening)
 
-        > 参考：TeachOpenCADD T015, T018
+        
         """)
     tab1, tab2 = st.tabs(["🔗 单分子对接", "🧩 批量对接"])
     with tab1:
@@ -1544,7 +1500,7 @@ def page_md_unified():
         - $\\Delta G_\\text{bind} = G_\\text{complex} - G_\\text{receptor} - G_\\text{ligand}$
         - 比对接打分更准确，比 FEP/TI 更快（适合教学场景）
 
-        > 参考：TeachOpenCADD T019 · *J Med Chem* (2016), 59(9), 4035-4061
+        
         """)
     tab1, tab2 = st.tabs(["⚛️ MD 模拟", "⚛️ MM-GBSA"])
     with tab1:

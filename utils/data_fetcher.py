@@ -15,9 +15,12 @@ import logging
 try:
     from chembl_webresource_client.new_client import new_client
     CHEMBL_AVAILABLE = True
-except ImportError:
+except Exception as exc:  # pragma: no cover - defensive import handling
     CHEMBL_AVAILABLE = False
-    logging.warning("chembl_webresource_client 未安装，ChEMBL 功能不可用")
+    logging.warning(
+        "chembl_webresource_client 初始化失败，ChEMBL 功能已禁用: %s",
+        exc,
+    )
 
 logger = logging.getLogger(__name__)
 

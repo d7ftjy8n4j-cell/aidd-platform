@@ -28,6 +28,29 @@ from md_utils import (
 
 logger = logging.getLogger(__name__)
 
+# ---- 持久化缓存 ----
+def _save_result_cache(cache_file, result_data):
+    """保存 MD 结果到持久化文件"""
+    try:
+        os.makedirs(os.path.dirname(cache_file), exist_ok=True)
+        with open(cache_file, "w", encoding="utf-8") as f:
+            json.dump({
+                "result": {k: v for k, v in result_data.items()
+                           if not k.startswith("_") and k != "log"},
+                "analysis": result_data.get("analysis"),
+            }, f, indent=2, ensure_ascii=False, default=str)
+    except Exception:
+        pass
+
+
+def _clear_result_cache(cache_file):
+    """清除持久化缓存"""
+    try:
+        if os.path.exists(cache_file):
+            os.remove(cache_file)
+    except Exception:
+        pass
+
 # ---- 常用配体 SMILES 模板 ----
 LIGAND_TEMPLATES = {
     "03P (TAK-285, 3POZ)": {
@@ -51,6 +74,133 @@ LIGAND_TEMPLATES = {
 def page_molecular_dynamics():
     """分子动力学模拟主页面 —— 3 步标签页"""
 
+    # ---- 持久化结果目录 ----
+    _MD_CACHE_DIR = os.path.join(tempfile.gettempdir(), "egfr_md_cache")
+    os.makedirs(_MD_CACHE_DIR, exist_ok=True)
+    _RESULT_CACHE_FILE = os.path.join(_MD_CACHE_DIR, "last_result.json")
+    _WORKER_LOCK_FILE = os.path.join(_MD_CACHE_DIR, "worker.lock")
+
+    # ---- 初始化 session_state ----
+    for key, default in [("md_go_to_run", False),
+                          ("md_pdb_content", None),
+                          ("md_output_dir", ""),
+                          ("md_process", None),
+                          ("md_result", None),
+                          ("md_error", None),
+                          ("md_progress", 0.0),
+                          ("md_status", ""),
+                          ("md_analysis", None)]:
+        if key not in st.session_state:
+            st.session_state[key] = default
+
+    # ====== 刷新恢复：从 worker.lock 重连正在运行的模拟 ======
+    _recovered_from_lock = False
+    if (st.session_state.get("md_process") is None
+            and st.session_state.get("md_result") is None
+            and os.path.exists(_WORKER_LOCK_FILE)):
+        try:
+            with open(_WORKER_LOCK_FILE, "r", encoding="utf-8") as f:
+                lock_data = json.load(f)
+            saved_dir = lock_data.get("output_dir", "")
+            saved_pid = lock_data.get("pid", 0)
+            # 检查进程是否还活着
+            alive = False
+            if saved_pid and saved_dir and os.path.isdir(saved_dir):
+                try:
+                    import ctypes
+                    kernel32 = ctypes.windll.kernel32
+                    handle = kernel32.OpenProcess(0x0400, False, saved_pid)  # PROCESS_QUERY_INFORMATION
+                    if handle:
+                        kernel32.CloseHandle(handle)
+                        alive = True
+                except Exception:
+                    pass  # 非 Windows 或进程不存在
+            if alive:
+                # 进程还在跑 → 恢复轮询状态
+                st.session_state["md_output_dir"] = saved_dir
+                st.session_state["md_process"] = "restored"  # 标记为非 None，触发轮询分支
+                st.session_state["md_progress"] = 0.0
+                st.session_state["md_status"] = "🔄 页面刷新，重连模拟进程..."
+                _recovered_from_lock = True
+            else:
+                # 进程已死 → 尝试从 result.json 恢复结果
+                rf = os.path.join(saved_dir, "result.json")
+                if os.path.exists(rf):
+                    try:
+                        with open(rf, "r", encoding="utf-8") as f:
+                            worker_result = json.load(f)
+                        if worker_result.get("status") == "success":
+                            st.session_state["md_result"] = worker_result
+                            st.session_state["md_analysis"] = worker_result.get("analysis")
+                            st.session_state["md_progress"] = 1.0
+                            st.session_state["md_status"] = "✅ 模拟完成"
+                            _save_result_cache(_RESULT_CACHE_FILE, worker_result)
+                    except Exception:
+                        pass
+                # 清理锁文件
+                try:
+                    os.remove(_WORKER_LOCK_FILE)
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+    # ====== 从持久化结果缓存恢复（仅在无活动模拟时）======
+    if (st.session_state.get("md_result") is None
+            and st.session_state.get("md_process") is None
+            and os.path.exists(_RESULT_CACHE_FILE)):
+        try:
+            with open(_RESULT_CACHE_FILE, "r", encoding="utf-8") as f:
+                cached = json.load(f)
+            st.session_state["md_result"] = cached.get("result")
+            st.session_state["md_analysis"] = cached.get("analysis")
+            st.session_state["md_progress"] = 1.0
+            st.session_state["md_status"] = "✅ 模拟完成（从缓存恢复）"
+        except Exception:
+            pass
+
+    # ====== 从 worker 临时目录恢复结果（兜底）======
+    if (st.session_state.get("md_result") is None
+            and st.session_state.get("md_process") is None):
+        import glob
+        worker_dirs = sorted(glob.glob(os.path.join(tempfile.gettempdir(), "md_worker_*")),
+                             key=os.path.getmtime, reverse=True)
+        for wd in worker_dirs[:3]:
+            rf = os.path.join(wd, "result.json")
+            if os.path.exists(rf):
+                try:
+                    with open(rf, "r") as f:
+                        worker_result = json.load(f)
+                    if worker_result.get("status") == "success":
+                        st.session_state["md_result"] = worker_result
+                        st.session_state["md_analysis"] = worker_result.get("analysis")
+                        st.session_state["md_progress"] = 1.0
+                        st.session_state["md_status"] = "✅ 模拟完成（自动恢复）"
+                        _save_result_cache(_RESULT_CACHE_FILE, worker_result)
+                        break
+                except Exception:
+                    pass
+        import glob
+        worker_dirs = sorted(glob.glob(os.path.join(tempfile.gettempdir(), "md_worker_*")),
+                             key=os.path.getmtime, reverse=True)
+        for wd in worker_dirs[:3]:
+            rf = os.path.join(wd, "result.json")
+            if os.path.exists(rf):
+                try:
+                    with open(rf, "r") as f:
+                        worker_result = json.load(f)
+                    if worker_result.get("status") == "success":
+                        st.session_state["md_result"] = worker_result
+                        st.session_state["md_analysis"] = worker_result.get("analysis")
+                        st.session_state["md_progress"] = 1.0
+                        st.session_state["md_status"] = "✅ 模拟完成（自动恢复）"
+                        st.session_state["md_process"] = None
+                        # 同时保存到缓存
+                        _save_result_cache(_RESULT_CACHE_FILE, worker_result)
+                        break
+                except Exception:
+                    pass
+
     st.title("⚛️ 分子动力学模拟 (MD)")
     st.caption("基于 OpenMM 对 EGFR 蛋白-配体复合物进行分子动力学模拟，观察原子运动与构象变化。")
 
@@ -68,26 +218,11 @@ def page_molecular_dynamics():
     # ==================== 依赖检查 ====================
     if not _check_md_deps():
         errors = _get_dep_errors()
-        st.error("❌ MD 模拟所需依赖未安装")
-
-        error_list = "\n".join([f"  - {name}" for name in errors])
-        st.markdown(f"**缺失的包**：\n{error_list}")
-
-        st.markdown("""
-        **安装方法（本地 conda 环境）**：
-        ```bash
-        # 方式 1: 使用项目提供的专用环境文件
-        conda env create -f environment_md.yml
-        conda activate egfr-md
-
-        # 方式 2: 手动安装
-        conda install -c conda-forge openmm openmmforcefields openff-toolkit pdbfixer mdtraj
-        ```
-
-        > ⚠️ MD 模拟推荐使用 GPU 加速，且 **不适合 Streamlit Cloud 部署**。  
-        > 云端用户仍可使用平台其他全部功能。
-        """)
-        return
+        st.warning("⚠️ 当前环境里的 MD 依赖没有通过完整导入检查，页面将以降级模式运行；你可以继续试用基础输入和结果展示。")
+        if errors:
+            st.caption("检测到的问题：")
+            st.code("\n".join([f"- {name}: {msg}" for name, msg in errors.items() if msg]), language="text")
+        st.info("如需完整 MD 运行，请在本地 conda 环境中安装：conda install -c conda-forge openmm openmmforcefields openff-toolkit pdbfixer mdtraj")
 
     # ==================== 3 步标签页 ====================
     tab_input, tab_run, tab_results = st.tabs([
@@ -107,7 +242,14 @@ def page_molecular_dynamics():
             "📋 快捷模板（自动填充下方参数）",
             ["自定义"] + list(LIGAND_TEMPLATES.keys()),
             help="选择经典 EGFR-抑制剂共晶结构模板",
+            key="md_template_select",
         )
+
+        # 模板默认值
+        tpl = LIGAND_TEMPLATES.get(template_name, {})
+        default_pdb = tpl.get("pdb", "3POZ")
+        default_resname = tpl.get("resname", "03P")
+        default_smiles = tpl.get("smiles", "CC(C)(O)CC(=O)NCCn1ccc2ncnc(Nc3ccc(Oc4cccc(c4)C(F)(F)F)c(Cl)c3)c12")
 
         col1, col2 = st.columns(2)
 
@@ -117,39 +259,33 @@ def page_molecular_dynamics():
                 "输入方式", ["PDB ID", "上传 PDB 文件"],
                 index=0, horizontal=True, key="md_input_mode",
             )
-            if input_mode == "PDB ID":
-                default_pdb = LIGAND_TEMPLATES[template_name]["pdb"] if template_name != "自定义" else "3POZ"
-                pdb_id = st.text_input(
-                    "PDB ID", value=default_pdb,
-                    help="推荐 EGFR 结构: 3POZ (TAK-285), 2ITY (吉非替尼), 1M17 (埃罗替尼)",
-                ).strip().upper()
-                st.session_state["md_pdb_id"] = pdb_id
-                st.session_state["md_pdb_content"] = None
-            else:
-                uploaded = st.file_uploader("上传 .pdb 文件", type=["pdb", "ent"], key="md_pdb_upload")
-                if uploaded:
-                    st.session_state["md_pdb_content"] = uploaded.read()
-                    st.session_state["md_pdb_id"] = None
-                    st.success(f"✅ 已加载: {uploaded.name}")
-                else:
-                    st.session_state["md_pdb_content"] = None
-                    st.session_state["md_pdb_id"] = None
 
         with col2:
             st.markdown("#### 💊 配体设置")
-            default_resname = LIGAND_TEMPLATES[template_name]["resname"] if template_name != "自定义" else "03P"
-            default_smiles = LIGAND_TEMPLATES[template_name]["smiles"] if template_name != "自定义" else "CC(C)(O)CC(=O)NCCn1ccc2ncnc(Nc3ccc(Oc4cccc(c4)C(F)(F)F)c(Cl)c3)c12"
-
             ligand_resname = st.text_input(
                 "配体残基名（3字母）", value=default_resname,
                 help="PDB 中配体的残基名。3POZ 的 TAK-285 残基名为 03P",
+                key="md_ligand_resname",
             ).strip()
             ligand_smiles = st.text_area(
                 "配体 SMILES（键级修正）", value=default_smiles, height=70,
                 help="从 PDB 网页获取的 Isomeric SMILES，用于修正配体键级和质子化状态",
+                key="md_ligand_smiles",
             ).strip()
-            st.session_state["md_ligand_resname"] = ligand_resname
-            st.session_state["md_ligand_smiles"] = ligand_smiles
+
+        # 蛋白 PDB 输入（放在 radio 下方以正确渲染）
+        pdb_id = None
+        if input_mode == "PDB ID":
+            pdb_id = st.text_input(
+                "PDB ID", value=default_pdb,
+                help="推荐 EGFR 结构: 3POZ (TAK-285), 2ITY (吉非替尼), 1M17 (埃罗替尼)",
+                key="md_pdb_id_input",
+            ).strip().upper()
+        else:
+            uploaded = st.file_uploader("上传 .pdb 文件", type=["pdb", "ent"], key="md_pdb_uploader")
+            if uploaded:
+                st.session_state["md_pdb_content"] = uploaded.read()
+                st.success(f"✅ 已加载: {uploaded.name}")
 
         # ---- 模拟参数 ----
         st.divider()
@@ -160,9 +296,9 @@ def page_molecular_dynamics():
             total_steps = st.number_input(
                 "模拟步数", min_value=100, max_value=500000,
                 value=5000, step=1000, key="md_total_steps",
-                help="每步 2 fs。5000 步 = 10 ps（教学演示），100k 步 = 200 ps",
+                help="每步 4 fs（SHAKE 约束氢键）。5000 步 = 20 ps，2500 步 = 10 ps",
             )
-            sim_time_ps = total_steps * 0.002
+            sim_time_ps = total_steps * 0.004  # 4 fs per step with SHAKE
             st.caption(f"≈ {sim_time_ps:.1f} ps 模拟时间")
 
         with col_b:
@@ -189,14 +325,9 @@ def page_molecular_dynamics():
             with cz:
                 ph = st.slider("pH", 5.0, 9.0, 7.0, 0.5, key="md_ph")
 
-        # 保存参数到 session
-        for k, v in [("md_total_steps", total_steps), ("md_write_interval", write_interval),
-                      ("md_temperature", temperature), ("md_padding", padding),
-                      ("md_ionic", ionic_strength), ("md_ph", ph)]:
-            st.session_state[k] = v
-
         # ---- 切换到 Step 2 ----
-        can_run = (st.session_state.get("md_pdb_id") or st.session_state.get("md_pdb_content"))
+        pdb_input = st.session_state.get("md_pdb_id_input", "")
+        can_run = bool(pdb_input) or bool(st.session_state.get("md_pdb_content"))
         if can_run:
             if st.button("➡️ 进入模拟设置", type="primary", use_container_width=True):
                 st.session_state["md_go_to_run"] = True
@@ -213,7 +344,7 @@ def page_molecular_dynamics():
         else:
             st.subheader("⚡ 执行分子动力学模拟")
 
-            pdb_id = st.session_state.get("md_pdb_id")
+            pdb_id = st.session_state.get("md_pdb_id_input", "")
             pdb_content = st.session_state.get("md_pdb_content")
             ligand_resname = st.session_state.get("md_ligand_resname", "03P")
             ligand_smiles = st.session_state.get("md_ligand_smiles", "")
@@ -225,28 +356,22 @@ def page_molecular_dynamics():
             ph = st.session_state.get("md_ph", 7.0)
 
             # 显示配置摘要
+            st.info("💡 当前为纯蛋白 MD 模式（CHARMM36 力场），配体参数化将在后续版本支持。")
             st.markdown(f"""
             | 参数 | 值 |
             |------|-----|
             | 蛋白 | `{pdb_id or '上传文件'}` |
-            | 配体残基 | `{ligand_resname}` |
+            | 力场 | CHARMM36 + TIP3P |
             | 模拟步数 | {total_steps} ({total_steps * 0.002:.0f} ps) |
             | 温度 | {temperature} K |
             | 帧数 | ≈{max(1, total_steps // write_interval)} |
             """)
 
-            # 异步执行：subprocess + 进度文件轮询
-            if "md_process" not in st.session_state:
-                st.session_state["md_process"] = None
-                st.session_state["md_result"] = None
-                st.session_state["md_error"] = None
-                st.session_state["md_progress"] = 0.0
-                st.session_state["md_status"] = ""
-                st.session_state["md_analysis"] = None
-
             if st.button("🚀 开始分子动力学模拟", type="primary",
                          disabled=st.session_state["md_process"] is not None,
                          use_container_width=True):
+                # 清除旧缓存
+                _clear_result_cache(_RESULT_CACHE_FILE)
                 # 准备参数
                 output_dir = tempfile.mkdtemp(prefix="md_worker_")
                 worker_params = {
@@ -285,7 +410,7 @@ def page_molecular_dynamics():
                 )
                 # 写 PID 文件以便检测孤儿进程
                 pid_file = os.path.join(output_dir, "worker.pid")
-                with open(pid_file, "w") as pf:
+                with open(pid_file, "w", encoding="utf-8") as pf:
                     pf.write(str(process.pid))
                 st.session_state["md_process"] = process
                 st.session_state["md_output_dir"] = output_dir
@@ -294,6 +419,12 @@ def page_molecular_dynamics():
                 st.session_state["md_progress"] = 0.0
                 st.session_state["md_status"] = "⏳ 启动模拟进程..."
                 st.session_state["md_analysis"] = None
+                # 写持久化锁文件（供刷新恢复）
+                try:
+                    with open(_WORKER_LOCK_FILE, "w") as lf:
+                        json.dump({"output_dir": output_dir, "pid": process.pid}, lf)
+                except Exception:
+                    pass
                 st.rerun()
 
             # 轮询进度
@@ -304,53 +435,97 @@ def page_molecular_dynamics():
                 energy_csv = os.path.join(output_dir, "energy_log.csv")
                 result_file = os.path.join(output_dir, "result.json")
 
-                progress_bar = st.progress(0.0)
+                # 刷新恢复模式：无真实 Popen 对象，从文件轮询
+                is_restored = process == "restored"
+
+                progress_bar = st.progress(st.session_state.get("md_progress", 0.0))
                 status_placeholder = st.empty()
                 chart_placeholder = st.empty()
 
-                # 取消按钮 + 进度条同行
-                col_prog, col_cancel = st.columns([5, 1])
-                cancel_clicked = col_cancel.button("⏹ 取消模拟", type="secondary",
-                                                    use_container_width=True,
-                                                    key=f"md_cancel_{id(process)}")
+                # 取消按钮
+                if not is_restored:
+                    col_prog, col_cancel = st.columns([5, 1])
+                    cancel_clicked = col_cancel.button("⏹ 取消模拟", type="secondary",
+                                                        use_container_width=True,
+                                                        key=f"md_cancel_{id(process)}")
+                else:
+                    cancel_clicked = st.button("⏹ 取消模拟", type="secondary",
+                                                use_container_width=True,
+                                                key="md_cancel_restored")
 
                 if cancel_clicked:
-                    try:
-                        process.terminate()
-                        process.wait(timeout=5)
-                    except Exception:
+                    if not is_restored:
                         try:
-                            process.kill()
+                            process.terminate()
+                            process.wait(timeout=5)
+                        except Exception:
+                            try:
+                                process.kill()
+                            except Exception:
+                                pass
+                    else:
+                        # 恢复模式下杀 PID
+                        try:
+                            with open(_WORKER_LOCK_FILE, "r") as lf:
+                                lock_data = json.load(lf)
+                            pid = lock_data.get("pid", 0)
+                            if pid:
+                                try:
+                                    import signal
+                                    os.kill(pid, signal.SIGTERM)
+                                except Exception:
+                                    pass  # 可能已经死了
                         except Exception:
                             pass
                     st.session_state["md_process"] = None
                     st.session_state["md_status"] = "⏹ 模拟已取消"
                     st.session_state["md_error"] = "用户取消"
-                    # 写取消标记供 worker 残留检测
-                    stop_file = os.path.join(output_dir, "stop_signal.txt")
-                    with open(stop_file, "w") as sf:
-                        sf.write("cancelled")
+                    _clear_result_cache(_RESULT_CACHE_FILE)
+                    try:
+                        os.remove(_WORKER_LOCK_FILE)
+                    except Exception:
+                        pass
                     st.warning("⏹ 模拟已取消。可调整参数后重新运行。")
                     time.sleep(1)
                     st.rerun()
 
-                if process.poll() is None:
+                # 读取进度和状态
+                running = False
+                if is_restored:
+                    # 恢复模式：检查进程是否还活着
+                    try:
+                        with open(_WORKER_LOCK_FILE, "r") as lf:
+                            lock_data = json.load(lf)
+                        pid = lock_data.get("pid", 0)
+                        if pid:
+                            import ctypes
+                            kernel32 = ctypes.windll.kernel32
+                            handle = kernel32.OpenProcess(0x0400, False, pid)
+                            if handle:
+                                kernel32.CloseHandle(handle)
+                                running = True
+                    except Exception:
+                        running = os.path.exists(progress_file)
+                else:
+                    running = process.poll() is None
+
+                if running:
                     # 进程仍在运行，读取进度
-                    pct = 0.0
+                    pct = st.session_state.get("md_progress", 0.0)
                     if os.path.exists(progress_file):
-                        with open(progress_file, "r") as f:
-                            lines = f.read().strip().split("\n", 1)
-                            try:
-                                pct = float(lines[0])
-                                st.session_state["md_progress"] = max(0.0, pct)
-                            except ValueError:
-                                pass
+                        try:
+                            with open(progress_file, "r", encoding="utf-8") as f:
+                                lines = f.read().strip().split("\n", 1)
+                            pct = float(lines[0])
+                            st.session_state["md_progress"] = max(0.0, pct)
                             st.session_state["md_status"] = lines[1] if len(lines) > 1 else "运行中..."
+                        except (ValueError, IndexError):
+                            pass
 
                     progress_bar.progress(st.session_state["md_progress"])
                     status_placeholder.markdown(f"**{st.session_state['md_status']}**")
 
-                    # 动态能量/温度折线图（防空文件读取）
+                    # 能量/温度折线图
                     if os.path.exists(energy_csv) and os.path.getsize(energy_csv) > 20:
                         try:
                             import pandas as pd
@@ -361,38 +536,39 @@ def page_molecular_dynamics():
                                     "温度 (K)": df["temperature_k"].values,
                                 })
                                 chart_placeholder.line_chart(chart_data, height=200)
-                        except (pd.errors.EmptyDataError, Exception):
-                            pass  # 首次空读取或列名不一致，静默跳过
+                        except Exception:
+                            pass
 
                     time.sleep(2)
                     st.rerun()
 
                 else:
-                    # 进程已结束 → 先解析 result.json 判断状态
+                    # 进程已结束 → 清理锁文件，解析结果
+                    try:
+                        os.remove(_WORKER_LOCK_FILE)
+                    except Exception:
+                        pass
                     progress_bar.progress(1.0)
-                    returncode = process.returncode
 
                     if os.path.exists(result_file):
-                        with open(result_file, "r") as f:
+                        with open(result_file, "r", encoding="utf-8") as f:
                             result_data = json.load(f)
 
                         if result_data.get("status") == "error":
                             error_msg = result_data.get("error_message", "未知错误")
                             st.session_state["md_error"] = error_msg
-                            st.session_state["md_status"] = f"❌ 模拟失败"
+                            st.session_state["md_status"] = "❌ 模拟失败"
                             st.session_state["md_process"] = None
-                            status_placeholder.error(f"❌ MD 模拟失败")
+                            _clear_result_cache(_RESULT_CACHE_FILE)
+                            status_placeholder.error("❌ MD 模拟失败")
                             st.error(f"**错误详情**：{error_msg}")
-                            st.markdown("""
-                            **常见原因与建议**：
-                            - 配体 SMILES 与 PDB 中残基不匹配 → 检查残基名和 SMILES
-                            - PDBFixer 无法修复缺失残基 → 尝试更换 PDB ID
-                            - 力场参数化失败 → 尝试减少模拟步数或调整 pH
-                            """)
                             with st.expander("🔍 原始错误输出"):
-                                stderr_output = process.stderr.read().decode("utf-8", errors="replace")
-                                st.code(stderr_output[-2000:], language="text")
-                            return  # 不再继续
+                                try:
+                                    stderr_output = process.stderr.read().decode("utf-8", errors="replace") if not is_restored else ""
+                                    st.code(stderr_output[-2000:] or "(无输出)", language="text")
+                                except Exception:
+                                    st.code("(无法读取错误输出)", language="text")
+                            return
 
                         if result_data.get("status") == "success":
                             st.session_state["md_result"] = result_data
@@ -400,19 +576,17 @@ def page_molecular_dynamics():
                             st.session_state["md_progress"] = 1.0
                             st.session_state["md_status"] = "✅ 模拟完成！"
                             st.session_state["md_process"] = None
+                            _save_result_cache(_RESULT_CACHE_FILE, result_data)
                             status_placeholder.success("✅ 模拟完成！")
                             st.session_state["md_go_to_results"] = True
                             if st.button("➡️ 查看结果", type="primary"):
                                 st.rerun()
                     else:
-                        # result.json 不存在 → worker 崩溃
-                        stderr_output = process.stderr.read().decode("utf-8", errors="replace")
-                        st.session_state["md_error"] = stderr_output[-500:] or f"退出码: {returncode}"
+                        st.session_state["md_error"] = "worker 崩溃（无结果文件）"
                         st.session_state["md_status"] = "❌ 模拟进程异常退出"
                         st.session_state["md_process"] = None
+                        _clear_result_cache(_RESULT_CACHE_FILE)
                         status_placeholder.error("❌ 模拟进程异常退出（未生成结果文件）")
-                        with st.expander("🔍 错误详情"):
-                            st.code(stderr_output[-2000:] or "(无输出)", language="text")
 
     # ================================================================
     # Step 3: 结果展示
@@ -424,6 +598,15 @@ def page_molecular_dynamics():
         if not result:
             st.info("👈 请先在 **Step 2** 中运行模拟")
         else:
+            # 🔗 自动同步到 MM-GBSA / 作用分析页面
+            if st.session_state.get("md_output") is None:
+                st.session_state["md_output"] = {
+                    "topology_pdb": result.get("topology_pdb", ""),
+                    "trajectory_xtc": result.get("trajectory_xtc", ""),
+                    "mean_pdb_path": result.get("mean_pdb_path", ""),
+                    "num_atoms": result.get("num_atoms", 0),
+                    "platform": result.get("platform", ""),
+                }
             st.subheader("📊 模拟结果")
 
             # ---- 指标卡片 ----
@@ -432,6 +615,9 @@ def page_molecular_dynamics():
             col_r2.metric("轨迹帧数", analysis.get("n_frames", "N/A") if analysis else "N/A")
             col_r3.metric("模拟步数", st.session_state.get("md_total_steps", "N/A"))
             col_r4.metric("温度", f"{st.session_state.get('md_temperature', 300)} K")
+            # 显示使用的计算平台（GPU/CPU）
+            platform_info = result.get("platform", "未知")
+            st.caption(f"🖥️ 计算平台: {platform_info}")
 
             # ---- 轨迹分析图表 ----
             if analysis:
@@ -489,7 +675,7 @@ def page_molecular_dynamics():
             col_dl1, col_dl2, col_dl3 = st.columns(3)
             with col_dl1:
                 if os.path.exists(result.get("topology_pdb", "")):
-                    with open(result["topology_pdb"], "r") as f:
+                    with open(result["topology_pdb"], "r", encoding="utf-8") as f:
                         st.download_button(
                             "📄 拓扑 PDB", data=f.read(),
                             file_name="md_topology.pdb", mime="chemical/x-pdb",
@@ -512,6 +698,16 @@ def page_molecular_dynamics():
                             use_container_width=True,
                         )
 
+            # ---- 清除结果 ----
+            st.divider()
+            if st.button("🗑️ 清除模拟结果", type="secondary", use_container_width=True):
+                _clear_result_cache(_RESULT_CACHE_FILE)
+                for key in ["md_result", "md_analysis", "md_process", "md_error",
+                            "md_progress", "md_status", "md_go_to_run", "md_go_to_results"]:
+                    if key in st.session_state:
+                        del st.session_state[key]
+                st.rerun()
+
             # ---- 导出到蛋白-配体作用分析 ----
             st.divider()
             st.subheader("🔗 下游衔接")
@@ -520,10 +716,18 @@ def page_molecular_dynamics():
             if st.button("📤 导出平均结构到作用分析", use_container_width=True):
                 mean_pdb = result.get("mean_pdb_path", "")
                 if mean_pdb and os.path.exists(mean_pdb):
-                    with open(mean_pdb, "r") as f:
+                    with open(mean_pdb, "r", encoding="utf-8") as f:
                         st.session_state["md_ready_pdb_content"] = f.read()
                     st.session_state["md_ready_source"] = "⚛️ 分子动力学模拟"
-                    st.success("✅ 已导出！请切换到「💊 蛋白-配体作用」标签页查看")
+                    # 同时写入 MM-GBSA 需要的 md_output
+                    st.session_state["md_output"] = {
+                        "topology_pdb": result.get("topology_pdb", ""),
+                        "trajectory_xtc": result.get("trajectory_xtc", ""),
+                        "mean_pdb_path": mean_pdb,
+                        "num_atoms": result.get("num_atoms", 0),
+                        "platform": result.get("platform", ""),
+                    }
+                    st.success("✅ 已导出到「💊 蛋白-配体作用」和「⚛️ MM-GBSA」页面")
                 else:
                     st.warning("平均结构不可用，请先完成模拟")
 

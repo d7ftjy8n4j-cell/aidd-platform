@@ -1,9 +1,10 @@
 # pages/page_molecular_generation.py
+# -*- coding: utf-8 -*-
 """
 分子生成页面 (字符级 RNN)
 
-基于字符级 LSTM 自回归生成新 SMILES 分子。
-借鉴 REINVENT 架构，演示化学语言模型与迁移学习概念。
+基于字符级 LSTM 自回归生成新 SMILES 分子.
+借鉴 REINVENT 架构,演示化学语言模型与迁移学习概念.
 
 参考: TeachOpenCADD T034 (RNN-based molecular property prediction)
 """
@@ -36,14 +37,14 @@ except ImportError:
 def page_molecular_generation():
     """分子生成主页面"""
 
-    # 检查 PyTorch 是否可用 (降级策略，与 SHAP 模块风格一致)
+    # 检查 PyTorch 是否可用 (降级策略,与 SHAP 模块风格一致)
     try:
         from utils.molecular_generation_utils import TORCH_AVAILABLE
     except ImportError:
         TORCH_AVAILABLE = False
 
     if not TORCH_AVAILABLE:
-        st.warning("⚠️ PyTorch 未安装，分子生成功能不可用")
+        st.warning("⚠️ PyTorch 未安装,分子生成功能不可用")
         st.markdown("""
         **安装指引**:
         ```bash
@@ -57,27 +58,25 @@ def page_molecular_generation():
         return
 
     st.title("🧬 分子生成 (SMILES-RNN)")
-    st.caption("基于字符级 LSTM 自回归生成全新 EGFR 抑制剂候选分子。")
+    st.caption("基于字符级 LSTM 自回归生成全新 EGFR 抑制剂候选分子.")
 
     with st.popover("🎓 教学点"):
         st.markdown("""
-        **AI 驱动的从头分子设计（de novo design）**：
+        **AI 驱动的从头分子设计(de novo design)**:
 
-        - **化学语言模型**：将 SMILES 视为一种"化学语言"，LSTM 循环神经网络学习字符序列规律
-        - **自回归生成**：逐个字符地"写"出新 SMILES——类似手机键盘的预测文本
-        - **温度采样** ($T$)：控制生成多样性
-          - $T \\rightarrow 0$：确定性输出（总是选最高概率字符）
-          - $T = 1$：按学习到的分布采样
-          - $T > 1$：增加随机性，探索更广阔的化学空间
+        - **化学语言模型**:将 SMILES 视为一种"化学语言",LSTM 循环神经网络学习字符序列规律
+        - **自回归生成**:逐个字符地"写"出新 SMILES----类似手机键盘的预测文本
+        - **温度采样** ($T$):控制生成多样性
+          - $T \\rightarrow 0$:确定性输出(总是选最高概率字符)
+          - $T = 1$:按学习到的分布采样
+          - $T > 1$:增加随机性,探索更广阔的化学空间
 
-        **迁移学习**：在 EGFR 抑制剂数据集上对基础模型做少量额外训练，
-        使模型"偏向"生成 EGFR 相关的化学结构。
+        **迁移学习**:在 EGFR 抑制剂数据集上对基础模型做少量额外训练,
+        使模型"偏向"生成 EGFR 相关的化学结构.
 
-        **借鉴架构**：REINVENT (Olivecrona et al., *J Cheminform* 2017)  
-        > 参考：TeachOpenCADD T034
+        **借鉴架构**:REINVENT (Olivecrona et al., *J Cheminform* 2017)  
+        > 参考:TeachOpenCADD T034
         """)
-
-    st.markdown("""
 
     # ---------- 初始化 Session State ----------
     for key, default in [
@@ -212,39 +211,39 @@ def page_molecular_generation():
 
     if not st.session_state["molgen_trained"]:
         st.info(
-            "👈 请先在左侧边栏训练或加载模型。"
-            "点击「⚡ 使用内置 EGFR 数据集训练」可快速体验。"
+            "👈 请先在左侧边栏训练或加载模型."
+            "点击「⚡ 使用内置 EGFR 数据集训练」可快速体验."
         )
         with st.expander("📘 页面说明", expanded=False):
             st.markdown("""
             ### 什么是 SMILES-RNN？
 
             SMILES (Simplified Molecular Input Line Entry System) 是一种用字符串表示
-            分子结构的化学语言。RNN (循环神经网络) 通过学习大量已知分子的 SMILES 序列，
-            掌握字符间的转换规律，从而能够自回归地生成全新的、化学上合理的 SMILES。
+            分子结构的化学语言. RNN (循环神经网络) 通过学习大量已知分子的 SMILES 序列,
+            掌握字符间的转换规律,从而能够自回归地生成全新的,化学上合理的 SMILES.
 
             ### 核心概念
 
             **1. 字符级语言模型**
-            将 "C", "O", "N", "=", "(" 等化学符号视为"字母"，RNN 学习
-            如何排列这些字母以构成有效的分子结构。
+            将 "C", "O", "N", "=", "(" 等化学符号视为"字母",RNN 学习
+            如何排列这些字母以构成有效的分子结构.
 
             **2. 自回归生成**
-            从一个起始字符 (如 "C") 开始，模型逐字预测下一个最可能出现的
-            字符，直到生成终止符 "~"。
+            从一个起始字符 (如 "C") 开始,模型逐字预测下一个最可能出现的
+            字符,直到生成终止符 "~".
 
             **3. 温度采样**
-            - `Temperature = 0.5`: 保守，倾向于高频模式，有效性高
-            - `Temperature = 1.0`: 标准，按学习到的分布采样
-            - `Temperature = 1.5`: 创造性，引入更多随机性
+            - `Temperature = 0.5`: 保守,倾向于高频模式,有效性高
+            - `Temperature = 1.0`: 标准,按学习到的分布采样
+            - `Temperature = 1.5`: 创造性,引入更多随机性
 
             **4. 迁移学习 (Fine-tuning)**
-            在通用化学数据集上预训练后，用特定靶点的抑制剂数据进行微调，
-            生成的分子会偏向该靶点的化学空间。
+            在通用化学数据集上预训练后,用特定靶点的抑制剂数据进行微调,
+            生成的分子会偏向该靶点的化学空间.
 
             ### 工作流衔接
             ```
-            分子生成 → 分子预测 (活性评估) → 药物筛选 (ADME) → 批量对接
+            分子生成 -> 分子预测 (活性评估) -> 药物筛选 (ADME) -> 批量对接
             ```
             """)
         return
@@ -372,7 +371,7 @@ def page_molecular_generation():
             st.subheader("📋 SMILES 列表 (可复制到预测模块)")
             smiles_text = "\n".join(r["canonical"] for r in valid)
             st.code(smiles_text, language="text")
-            st.caption("💡 复制以上 SMILES，粘贴到「分子预测」页面的输入框中，一键评估活性")
+            st.caption("💡 复制以上 SMILES,粘贴到「分子预测」页面的输入框中,一键评估活性")
 
             # 下载
             st.download_button(

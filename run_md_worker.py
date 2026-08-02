@@ -32,6 +32,18 @@ import math
 import logging
 from pathlib import Path
 
+# ---- Windows: 修复 OpenMP 冲突 + DLL 搜索路径 ----
+if sys.platform == "win32":
+    os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
+    _conda_prefix = os.environ.get("CONDA_PREFIX", "")
+    if _conda_prefix:
+        _dll_dir = os.path.join(_conda_prefix, "Library", "bin")
+        if os.path.isdir(_dll_dir):
+            try:
+                os.add_dll_directory(_dll_dir)
+            except Exception:
+                pass
+
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
@@ -49,7 +61,7 @@ def write_progress(output_dir: str, progress: float, status: str = ""):
     """写入进度文件（手动 flush 确保页面轮询立即可读）"""
     os.makedirs(output_dir, exist_ok=True)
     progress_file = os.path.join(output_dir, "progress.txt")
-    with open(progress_file, "w") as f:
+    with open(progress_file, "w", encoding="utf-8") as f:
         f.write(f"{progress:.4f}\n{status}")
         f.flush()
 
@@ -57,7 +69,7 @@ def write_progress(output_dir: str, progress: float, status: str = ""):
 def init_energy_log(output_dir: str) -> str:
     """初始化能量日志 CSV，写入表头并 flush，返回文件路径"""
     csv_path = os.path.join(output_dir, "energy_log.csv")
-    with open(csv_path, "w") as f:
+    with open(csv_path, "w", encoding="utf-8") as f:
         f.write("step,potential_energy_kjmol,temperature_k\n")
         f.flush()
     return csv_path
@@ -69,7 +81,7 @@ def append_energy_row(csv_path: str, step: int, energy: float, temp: float):
         energy = 0.0
     if math.isnan(temp) or math.isinf(temp):
         temp = 0.0
-    with open(csv_path, "a") as f:
+    with open(csv_path, "a", encoding="utf-8") as f:
         f.write(f"{step},{energy:.2f},{temp:.2f}\n")
         f.flush()
 
@@ -102,10 +114,10 @@ def write_result(output_dir: str, result: dict):
     for k, v in result.items():
         if k in ("topology_pdb", "trajectory_xtc", "mean_pdb_path",
                  "num_atoms", "log", "tmpdir", "analysis",
-                 "energy_log_csv", "error_message"):
+                 "energy_log_csv", "error_message", "platform"):
             safe[k] = v
     clean = _sanitize_for_json(safe)
-    with open(result_file, "w") as f:
+    with open(result_file, "w", encoding="utf-8") as f:
         json.dump(clean, f, indent=2, ensure_ascii=False)
 
 
@@ -154,6 +166,7 @@ def main():
             ionic_strength=params.get("ionic_strength", 0.15),
             ph=params.get("ph", 7.0),
             progress_callback=progress_cb,
+            output_dir=output_dir,
         )
 
         write_progress(output_dir, 0.95, "分析轨迹 + 导出代表性结构...")

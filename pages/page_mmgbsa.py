@@ -74,10 +74,20 @@ def page_mmgbsa():
     with col_left:
         st.subheader("📂 输入文件")
 
+        # 如果 md_output 已有数据，默认切换到缓存模式
+        _has_cached = (
+            "md_output" in st.session_state
+            and st.session_state.md_output
+            and st.session_state.md_output.get("topology_pdb")
+        )
+        default_mode = 1 if _has_cached else 0
+
         input_mode = st.radio(
             "输入方式",
             ["手动路径", "会话缓存的 MD 结果"],
+            index=default_mode,
             horizontal=True,
+            key="mmgbsa_input_mode",
             help="手动输入文件路径，或从刚完成的 MD 模拟会话中读取",
         )
 

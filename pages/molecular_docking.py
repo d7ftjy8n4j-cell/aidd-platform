@@ -221,7 +221,7 @@ def page_molecular_docking():
                 st.subheader("🧊 3D 构象可视化")
                 st.caption("蛋白为卡通模型，不同颜色代表不同对接构象")
                 try:
-                    html_str = result["view"]._repr_html_()
+                    html_str = result["view"]._make_html()
                     st.components.v1.html(html_str, height=600)
                 except Exception as e:
                     st.warning(f"3D 可视化渲染失败: {e}")
@@ -268,7 +268,15 @@ def page_molecular_docking():
                         st.code(e.output, language="text")
             except ImportError as e:
                 st.error(f"❌ 缺少依赖: {e}")
-                st.info("请执行: pip install openbabel nglview opencadd")
+                # 从错误信息中提取缺失的模块名，给出精确的安装建议
+                err_msg = str(e)
+                if "No module named" in err_msg:
+                    mod = err_msg.split("No module named")[-1].strip().strip("'").strip('"')
+                    st.info(f"请执行: conda activate egfr-md && pip install {mod.split('.')[0]}")
+                elif "未安装" in err_msg:
+                    st.info(err_msg)  # 错误信息已包含安装建议
+                else:
+                    st.info("请确认已安装: pyarrow openbabel py3Dmol rpds-py")
             except Exception as e:
                 st.error(f"❌ 对接失败: {e}")
                 import traceback

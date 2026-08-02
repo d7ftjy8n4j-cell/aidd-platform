@@ -21,6 +21,12 @@ MM-GBSA 结合自由能估算核心引擎
 
 import logging
 import numpy as np
+import os
+import sys
+
+# ---- Windows: 修复 OpenMP 冲突 ----
+if sys.platform == "win32":
+    os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
 
 logger = logging.getLogger(__name__)
 
@@ -52,26 +58,13 @@ _GB_RADIUS_DEFAULT = 0.17  # nm
 def get_ligand_indices(traj, ligand_resname: str):
     """
     从 MDTraj 轨迹中根据残基名找到配体原子索引。
-
-    Parameters
-    ----------
-    traj : mdtraj.Trajectory
-    ligand_resname : str
-        配体在 PDB 中的残基名，如 "03P"
-
-    Returns
-    -------
-    np.ndarray
-        配体原子索引数组（int64）
+    避免 MDTraj select() 的 ast.parse bug（残基名含前导零如 "03P" 会被误解析为数字）。
     """
-    # 精确匹配
-    idx = traj.topology.select(f"resname {ligand_resname}")
-    if len(idx) == 0:
-        # 大小写不敏感回退
-        for res in traj.topology.residues:
-            if res.name.upper() == ligand_resname.upper():
-                idx = np.array([a.index for a in res.atoms], dtype=np.int64)
-                break
+    idx = np.array([], dtype=np.int64)
+    for res in traj.topology.residues:
+        if res.name.upper() == ligand_resname.upper():
+            idx = np.array([a.index for a in res.atoms], dtype=np.int64)
+            break
     if len(idx) == 0:
         available = sorted(set(r.name for r in traj.topology.residues))
         raise ValueError(
@@ -276,7 +269,8 @@ def run_mmgbsa(
     logger.info(f"  共 {traj.n_frames} 帧，{traj.n_atoms} 个原子")
 
     # ---- 2. 识别蛋白 & 配体原子索引 ----
-    protein_indices = traj.topology.select("protein")
+    # 避免 MDTraj select() 的 ast.parse bug
+    protein_indices = np.array([a.index for a in traj.topology.atoms if a.residue.is_protein], dtype=np.int64)
     ligand_indices = get_ligand_indices(traj, ligand_resname)
 
     logger.info(

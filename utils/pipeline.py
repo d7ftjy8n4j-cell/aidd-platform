@@ -60,21 +60,21 @@ logger = logging.getLogger(__name__)
 GCN_AVAILABLE = True
 try:
     from gnn_predictor import GCNPredictor
-except ImportError as e:
+except Exception as e:
     GCN_AVAILABLE = False
     logger.warning(f"GNN预测器不可用: {e}")
 
 PHARMACOPHORE_AVAILABLE = True
 try:
     from pharmacophore_streamlit import StreamlitPharmacophore
-except ImportError as e:
+except Exception as e:
     PHARMACOPHORE_AVAILABLE = False
     logger.warning(f"药效团模块不可用: {e}")
 
 SIMILARITY_AVAILABLE = True
 try:
     from chem_insight_safe import SafeChemInsightEngine
-except ImportError as e:
+except Exception as e:
     SIMILARITY_AVAILABLE = False
     logger.warning(f"相似性搜索模块不可用: {e}")
 
