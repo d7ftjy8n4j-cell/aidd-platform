@@ -170,6 +170,16 @@
 
 ## 🚀 快速开始
 
+### Windows 一键启动（推荐）
+
+双击仓库根目录下的 **`启动药尘光.bat`** 即可：
+
+1. 自动设置 OpenMP 环境变量（解决 Windows 下 BLAS/DLL 兼容问题）
+2. 激活 `egfr-md` conda 环境
+3. 打开浏览器并启动 Streamlit → http://localhost:8501
+
+> ⚠️ 需要已创建 `egfr-md` 环境（见下方 conda 安装步骤）并安装 `requirements.txt`。
+
 ### 本地运行（推荐 conda）
 
 ```bash
@@ -179,7 +189,7 @@ cd ai-egfr-platform
 
 # 2. 创建虚拟环境（需要 conda 以支持 OpenMM/OpenBabel 等编译依赖）
 conda env create -f environment_md.yml
-conda activate egfr
+conda activate egfr-md
 
 # 3. 安装 PyPI 依赖
 pip install -r requirements.txt
@@ -197,6 +207,18 @@ streamlit run app.py
 
 > 无 conda 环境时，分子对接（需 OpenBabel + Smina）、分子动力学（需 OpenMM）、MM-GBSA（需 OpenMM + MDTraj）和蛋白-配体作用分析（需 PLIP）将自动降级但其他功能正常。
 
+### Windows 兼容性说明
+
+- **UTF-8 输出**：代码已内置 stdout/stderr UTF-8 重配置，GBK 控制台不会再因 emoji 输出崩溃
+- **SHAP 三层防护**：Windows 下 numpy/scipy/matplotlib 混装可能触发原生崩溃（0xC06D007F）。应用内置：
+  1. OpenMP 环境变量（`KMP/OMP_DUPLICATE_LIB_OK=TRUE`）
+  2. `is_shap_available()` 子进程探测（崩溃隔离，主进程永不挂）
+  3. SHAP 不可用时自动降级为 RF 原生 Gini 特征重要性图
+- 若遇到 BLAS 相关崩溃，建议统一用 pip 重装数值栈：
+  ```bash
+  pip install --ignore-installed --force-reinstall numpy==1.26.4 scipy==1.12.0 matplotlib==3.8.4
+  ```
+
 ### Streamlit Cloud 一键部署
 
 1. 将代码推送到 GitHub 仓库
@@ -211,10 +233,12 @@ streamlit run app.py
 ```
 .
 ├── app.py                      # 主入口（st.navigation 13 页，5 组合并标签）
+├── 启动药尘光.bat              # Windows 一键启动器（环境变量 + 激活 + 启动）
 ├── requirements.txt            # PyPI 依赖（Streamlit Cloud 兼容）
 ├── packages.txt                # apt 系统依赖
 ├── environment_md.yml          # conda 全栈环境（含 OpenMM/OpenBabel）
-├── Dockerfile       # Docker 镜像
+├── Dockerfile                  # Docker 镜像
+├── .gitignore / .gitattributes # 工程规范（LF 统一 / 忽略缓存）
 │
 ├── 🧠 模型                     # rf_egfr_model_final.pkl / gcn_egfr_best_model.pth
 ├── 🔧 引擎                     # 12 个核心模块（predictor / filter / docking / md / …）
@@ -305,13 +329,13 @@ streamlit run app.py
 
 | 包 | 最低版本 | 说明 |
 |----|:---:|------|
-| `streamlit` | 1.56.0 | Web 框架 |
+| `streamlit` | 1.60.0 | Web 框架 |
 | `rdkit-pypi` | 2022.9.5 | 化学信息学核心 |
-| `scikit-learn` | 1.3.0 | 随机森林 |
-| `torch` | 2.1.2 | PyTorch 后端 |
+| `scikit-learn` | 1.4.0 | 随机森林 |
+| `torch` | 2.5.1+cpu | PyTorch 后端 |
 | `torch-geometric` | 2.4.0 | 图神经网络 |
-| `pandas` / `numpy` | 1.5.0 / 1.19.3 | 数据处理 |
-| `shap` | 0.41.0 | 模型可解释性 |
+| `pandas` / `numpy` | 2.0.0 / 1.24 | 数据处理（numpy<2） |
+| `shap` | 0.46.0 | 模型可解释性（Python 3.11 兼容） |
 | `umap-learn` | 0.5.5 | 化学空间降维 |
 | `plotly` | 5.18.0 | 交互式图表 |
 
