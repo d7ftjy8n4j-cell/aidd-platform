@@ -7,6 +7,23 @@ import json
 import os
 import sys
 import re
+import warnings
+
+# sklearn 升级后加载旧版本训练的模型会刷 InconsistentVersionWarning。
+# 模型已验证可用（见 tests/），仅静默该提示类警告。
+warnings.filterwarnings(
+    "ignore",
+    message="Trying to unpickle estimator .* from version .* when using version",
+    category=UserWarning,
+)
+
+# Windows GBK 控制台防御：emoji print 在 GBK 编码下会抛 UnicodeEncodeError
+if sys.platform == "win32":
+    for _stream in (sys.stdout, sys.stderr):
+        try:
+            _stream.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
 
 # 尝试导入RDKit，如果不可用则设置标志
 try:

@@ -202,7 +202,7 @@ streamlit run app.py
 1. 将代码推送到 GitHub 仓库
 2. 登录 [share.streamlit.io](https://share.streamlit.io)
 3. 点击 **New app** → 选择仓库 → 主文件设为 `app.py`
-4. 点击 **Deploy**（已内置 `packages.txt` 和 `Dockerfile.dockerfile`）
+4. 点击 **Deploy**（已内置 `packages.txt` 和 `Dockerfile`）
 
 ---
 
@@ -214,7 +214,7 @@ streamlit run app.py
 ├── requirements.txt            # PyPI 依赖（Streamlit Cloud 兼容）
 ├── packages.txt                # apt 系统依赖
 ├── environment_md.yml          # conda 全栈环境（含 OpenMM/OpenBabel）
-├── Dockerfile.dockerfile       # Docker 镜像
+├── Dockerfile       # Docker 镜像
 │
 ├── 🧠 模型                     # rf_egfr_model_final.pkl / gcn_egfr_best_model.pth
 ├── 🔧 引擎                     # 12 个核心模块（predictor / filter / docking / md / …）

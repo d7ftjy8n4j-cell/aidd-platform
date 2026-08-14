@@ -126,7 +126,8 @@ class GCNPredictor:
     def _load_weights(self):
         """加载预训练权重（严格模式，键名完全匹配）"""
         logger.info(f"正在加载模型: {self.model_path}")
-        state_dict = torch.load(self.model_path, map_location=self.device)
+        # weights_only=True：模型为纯 state_dict（张量字典），安全且消除 PyTorch 未来弃用警告
+        state_dict = torch.load(self.model_path, map_location=self.device, weights_only=True)
         self.model.load_state_dict(state_dict, strict=True)
         total_params = sum(p.numel() for p in self.model.parameters())
         logger.info(f"✓ 模型权重加载成功（严格模式），总参数量: {total_params:,}")

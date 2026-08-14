@@ -1,0 +1,35 @@
+# ========== Python ==========
+__pycache__/
+*.py[cod]
+*.so
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ========== 虚拟环境 ==========
+.venv/
+venv/
+env/
+
+# ========== Streamlit ==========
+.streamlit/secrets.toml
+
+# ========== IDE / 系统 ==========
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# ========== 临时文件 ==========
+*.tmp
+*.bak
+*.log
+/tmp/
+
+# ========== 生成物（generate_manual.py 输出） ==========
+*用户手册*.docx
+*.docx

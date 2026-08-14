@@ -10,6 +10,26 @@ import os
 import logging
 from datetime import datetime
 
+# ========== Windows GBK 控制台防御 ==========
+# 代码中大量使用 emoji print/log，Windows 默认 GBK 编码会抛 UnicodeEncodeError
+# 导致预测器初始化失败。统一将 stdout/stderr 重配为 UTF-8（含 logging 底层流）。
+if sys.platform == "win32":
+    for _stream in (sys.stdout, sys.stderr):
+        try:
+            _stream.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+    # logging.StreamHandler 默认持有 sys.stderr 引用，重配后一并生效
+    try:
+        _root_logger = logging.getLogger()
+        for _h in list(_root_logger.handlers):
+            try:
+                _h.stream.reconfigure(encoding="utf-8", errors="replace")
+            except Exception:
+                pass
+    except Exception:
+        pass
+
 # ========== 设置页面（必须在任何Streamlit命令之前） ==========
 import streamlit as st
 st.set_page_config(
@@ -417,7 +437,8 @@ def init_predictors():
     if RF_PREDICTOR_AVAILABLE:
         try:
             predictors['rf'] = RealEGFRPredictor()
-            if predictors['rf'].model is None:
+            # Fallback 类没有 .model 属性，用 getattr 防御（仅当显式为 None 且无 predict 能力时才丢弃）
+            if getattr(predictors['rf'], 'model', None) is None and not hasattr(predictors['rf'], 'predict'):
                 del predictors['rf']
         except Exception as e:
             logging.error(f"RF预测器初始化失败: {e}")

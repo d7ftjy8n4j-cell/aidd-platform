@@ -69,7 +69,7 @@ def show_clustering_page():
             key="clustering_switch_to_imported_data"
         ):
             st.session_state.clustering_input_option = "📂 从数据获取模块导入"
-            st.experimental_rerun()
+            st.rerun()
 
     molecules: list = []
     mol_ids: list = []

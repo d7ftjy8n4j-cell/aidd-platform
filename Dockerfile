@@ -1,5 +1,5 @@
-# 使用Python 3.9的官方镜像
-FROM python:3.9-slim
+# 使用Python 3.11的官方镜像（与本地开发环境一致，兼容 torch 2.5.1）
+FROM python:3.11-slim
 
 # 安装系统依赖（解决RDKit问题）
 RUN apt-get update && apt-get install -y \

@@ -79,7 +79,7 @@ def page_automated_pipeline():
                 key="pipeline_switch_to_imported_data"
             ):
                 st.session_state.pipeline_input_mode = "📦 已导入数据"
-                st.experimental_rerun()
+                st.rerun()
 
         smiles_list: list = []
 
