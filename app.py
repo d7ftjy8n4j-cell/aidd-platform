@@ -30,6 +30,16 @@ if sys.platform == "win32":
     except Exception:
         pass
 
+# ========== Windows OpenMP 运行时冲突防御 ==========
+# 问题：conda MKL 构建的 numpy/scipy 加载 libiomp5md.dll (Intel OpenMP)，
+# 而 pip 安装的 numba/llvmlite 加载 libomp.dll (LLVM OpenMP)。
+# 两者共存触发 OMP Error #15，进而升级为不可被 try/except 捕获的
+# 原生崩溃 0xC06D007F（典型表现：import shap 时进程直接终止）。
+# 解法：允许两个 OpenMP 运行时共存（OpenMP 官方给出的环境变量），
+# 必须在任何 numpy/scipy 导入之前设置。
+os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
+os.environ.setdefault("OMP_DUPLICATE_LIB_OK", "TRUE")
+
 # ========== 设置页面（必须在任何Streamlit命令之前） ==========
 import streamlit as st
 st.set_page_config(
@@ -266,7 +276,7 @@ class Config:
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
     LOG_FILE = os.path.join(BASE_DIR, "app.log")
     RF_DEFAULT_PERF = {'auc': 0.8695, 'accuracy': 0.7856, 'feature_count': '200+'}
-    GNN_DEFAULT_PERF = {'auc': 0.8628, 'accuracy': 0.7842, 'node_features': '12维'}
+    GNN_DEFAULT_PERF = {'auc': 0.8628, 'accuracy': 0.7842, 'node_features': '13维'}
     SMILES_PATTERN = r'^[A-Za-z0-9@+\-\[\]\(\)\\\/%=#$]+$'
     LOG_LEVEL = logging.INFO
 
@@ -466,7 +476,9 @@ try:
         compute_shap_for_sample,
         plot_shap_waterfall,
         plot_shap_bar,
+        plot_feature_importance_fallback,
         format_shap_insights,
+        is_shap_available,
     )
     from utils.uncertainty_utils import (
         predict_with_uncertainty,
@@ -643,26 +655,38 @@ def _render_shap_uncertainty_section(rf_predictor, smiles, rf_result):
                 "红色条推高活性预测，蓝色条拉低活性预测。"
             )
 
-            try:
-                explainer = get_shap_explainer(rf_predictor.model)
-                shap_result = compute_shap_for_sample(
-                    explainer, features, feature_names
+            # 关键点：Windows 下 import shap 可能触发不可捕获的原生崩溃
+            # (0xC06D007F, BLAS/DLL 冲突)，必须先经子进程探测确认可用，
+            # 不可用时自动降级为 RF 原生特征重要性，保证功能不缺失
+            if not is_shap_available():
+                st.warning(
+                    "⚠️ SHAP 在当前环境不可用（Windows 下 BLAS/DLL 兼容问题）。"
+                    "已自动降级为随机森林原生特征重要性展示，"
+                    "仍可查看关键描述符对预测的贡献。"
                 )
+                _render_fallback_importance(rf_predictor, feature_names)
+            else:
+                try:
+                    explainer = get_shap_explainer(rf_predictor.model)
+                    shap_result = compute_shap_for_sample(
+                        explainer, features, feature_names
+                    )
 
-                # 瀑布图
-                fig_waterfall = plot_shap_waterfall(shap_result)
-                st.pyplot(fig_waterfall)
+                    # 瀑布图
+                    fig_waterfall = plot_shap_waterfall(shap_result)
+                    st.pyplot(fig_waterfall)
 
-                # 文字摘要
-                st.markdown(format_shap_insights(shap_result))
+                    # 文字摘要
+                    st.markdown(format_shap_insights(shap_result))
 
-                # 条形图
-                with st.expander("📊 查看特征重要性条形图"):
-                    fig_bar = plot_shap_bar(shap_result)
-                    st.pyplot(fig_bar)
+                    # 条形图
+                    with st.expander("📊 查看特征重要性条形图"):
+                        fig_bar = plot_shap_bar(shap_result)
+                        st.pyplot(fig_bar)
 
-            except Exception as e:
-                st.warning(f"SHAP 分析失败: {e}")
+                except Exception as e:
+                    st.warning(f"SHAP 分析失败: {e}")
+                    _render_fallback_importance(rf_predictor, feature_names)
 
         # ---- Tab 2: 不确定性 ----
         with tab_uncertainty:
@@ -711,6 +735,21 @@ def _render_shap_uncertainty_section(rf_predictor, smiles, rf_result):
 
             except Exception as e:
                 st.warning(f"不确定性计算失败: {e}")
+
+
+def _render_fallback_importance(rf_predictor, feature_names):
+    """SHAP 不可用时的降级：渲染 RF 原生 Gini 特征重要性图。"""
+    st.caption("下方为降级展示：随机森林 Gini 特征重要性（无需 SHAP）")
+    try:
+        fig = plot_feature_importance_fallback(
+            rf_predictor.model, feature_names
+        )
+        if fig is not None:
+            st.pyplot(fig)
+        else:
+            st.info("当前模型不提供特征重要性信息")
+    except Exception as e:
+        st.info(f"特征重要性展示不可用: {e}")
 
 # ============================================================
 # 页面函数定义 - 每个标签页封装为一个独立函数
@@ -842,10 +881,14 @@ def page_molecular_prediction():
                 status_text.text("✅ 预测完成！")
 
             # ========== 模型解释性分析 (SHAP + 不确定性) ==========
+            # 仅当 RF 为真实模型（有 .model 与 smiles_to_features）时才渲染；
+            # Fallback/Minimal 降级类没有这些能力，避免每次预测都报错
             if (SHAP_AVAILABLE
                     and rf_result is not None
                     and rf_result.get('success')
-                    and 'rf' in predictors):
+                    and 'rf' in predictors
+                    and getattr(predictors['rf'], 'model', None) is not None
+                    and hasattr(predictors['rf'], 'smiles_to_features')):
                 _render_shap_uncertainty_section(
                     predictors['rf'],
                     smiles_clean,
@@ -1209,7 +1252,7 @@ def page_model_and_system():
         ```
         输入层 (SMILES)
             ├── 随机森林分支 → RDKit特征提取 (200+描述符) → 预测结果
-            └── GNN分支 → 分子图转换 (12维原子特征) → 图卷积网络 → 预测结果
+            └── GNN分支 → 分子图转换 (13维原子特征) → 图卷积网络 → 预测结果
                          ↓
                     集成决策：加权平均 + 一致性判断
         ```
@@ -1345,7 +1388,8 @@ def render_sidebar():
         st.divider()
         rating = st.feedback("stars", key="global_feedback")
         if rating is not None:
-            st.caption(f"感谢您的 {int(rating) + 1} 星评价！")
+            # st.feedback 返回 1-5，直接使用无需 +1
+            st.caption(f"感谢您的 {int(rating)} 星评价！")
 
 
 # ============================================================

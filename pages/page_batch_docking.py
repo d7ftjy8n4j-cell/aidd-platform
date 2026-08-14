@@ -8,9 +8,7 @@
 
 import subprocess
 import pandas as pd
-import numpy as np
 import streamlit as st
-import logging
 
 from components.knime_export import knime_export_section
 
@@ -267,6 +265,9 @@ def page_batch_docking():
             st.success(f"✅ 批量对接完成！成功 {result['stats']['n_success']}/{len(smiles_list)} 个配体")
 
             # ---- 显示结果 ----
+            # 将运行参数写入 result，供 _render_batch_results 的 KNIME metadata 使用
+            result["exhaustiveness"] = exhaustiveness
+            result["num_poses"] = num_poses
             _render_batch_results(result)
 
             # 缓存 + 清理定时器
@@ -518,8 +519,8 @@ def _render_batch_results(result, compact=False):
             key_prefix="batch_dock_knime",
             metadata={
                 "pdb_id": result.get("pdb_id", ""),
-                "exhaustiveness": exhaustiveness,
-                "num_modes": num_modes,
+                "exhaustiveness": result.get("exhaustiveness", ""),
+                "num_poses": result.get("num_poses", ""),
             },
         )
 

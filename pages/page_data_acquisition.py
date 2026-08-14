@@ -13,7 +13,7 @@ import os
 sys.path.append(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 )
-from utils.data_fetcher import DataFetcher, CompoundRecord, FetchResult
+from utils.data_fetcher import DataFetcher, FetchResult
 from components.knime_export import knime_export_section
 
 
@@ -206,6 +206,9 @@ def _render_upload_mode():
                 st.session_state.batch_data_source = "upload"
                 st.session_state.pipeline_input_mode = "📦 已导入数据"
                 st.session_state.clustering_input_option = "📂 从数据获取模块导入"
+                # 清空旧流程结果，避免与新导入数据混淆（与 fetch 流程一致）
+                st.session_state.pop("pipeline_results", None)
+                st.session_state.pop("pipeline_smiles_list", None)
                 st.toast(f"✅ 已导入 {len(smiles_list)} 个分子")
                 st.info("💡 请前往「⚙️ 自动化流程」页面进行分析")
         else:
@@ -248,6 +251,7 @@ def _render_fetch_result(fetch_result: FetchResult):
     data = []
     for comp in fetch_result.compounds:
         data.append({
+            # 展示用截断 SMILES，仅用于表格显示
             "SMILES": (
                 comp.smiles[:80] + "..."
                 if len(comp.smiles) > 80
@@ -265,8 +269,22 @@ def _render_fetch_result(fetch_result: FetchResult):
     df_results = pd.DataFrame(data)
     st.dataframe(df_results, use_container_width=True)
 
-    # 下载按钮
-    csv_data = df_results.to_csv(index=False, encoding="utf-8-sig")
+    # 下载按钮：使用完整 SMILES 构建导出数据，避免截断损坏分子结构
+    export_data = []
+    for comp in fetch_result.compounds:
+        export_data.append({
+            "SMILES": comp.smiles,
+            "ChEMBL ID": comp.chembl_id or "-",
+            "PubChem CID": comp.pubchem_cid or "-",
+            "活性值": (
+                f"{comp.activity_value:.2f}"
+                if comp.activity_value is not None
+                else "-"
+            ),
+            "来源": comp.source,
+        })
+    df_export = pd.DataFrame(export_data)
+    csv_data = df_export.to_csv(index=False, encoding="utf-8-sig")
     st.download_button(
         label="📥 下载结果 CSV",
         data=csv_data,
@@ -277,11 +295,13 @@ def _render_fetch_result(fetch_result: FetchResult):
         mime="text/csv",
     )
 
-    # 一键送入 Pipeline
+    # 一键送入 Pipeline（记录实际查询指纹，避免不同查询被误判为“已发送”）
+    _query_fingerprint = f"{fetch_result.source}:{fetch_result.query}"
     already_sent = (
         "batch_smiles_list" in st.session_state
         and st.session_state.batch_smiles_list
         and st.session_state.get("batch_data_source") == fetch_result.source
+        and st.session_state.get("batch_sent_query") == _query_fingerprint
     )
     if already_sent:
         st.success(
@@ -297,6 +317,7 @@ def _render_fetch_result(fetch_result: FetchResult):
             ]
             st.session_state.batch_smiles_list = smiles_list
             st.session_state.batch_data_source = fetch_result.source
+            st.session_state.batch_sent_query = _query_fingerprint
             # 联动：自动设置下游页面的输入模式
             st.session_state.pipeline_input_mode = "📦 已导入数据"
             st.session_state.clustering_input_option = "📂 从数据获取模块导入"

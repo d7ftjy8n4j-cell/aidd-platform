@@ -16,6 +16,7 @@ import subprocess
 import json
 import time
 import logging
+import shutil
 from pathlib import Path
 import streamlit as st
 import numpy as np
@@ -94,7 +95,6 @@ def page_molecular_dynamics():
             st.session_state[key] = default
 
     # ====== 刷新恢复：从 worker.lock 重连正在运行的模拟 ======
-    _recovered_from_lock = False
     if (st.session_state.get("md_process") is None
             and st.session_state.get("md_result") is None
             and os.path.exists(_WORKER_LOCK_FILE)):
@@ -103,25 +103,31 @@ def page_molecular_dynamics():
                 lock_data = json.load(f)
             saved_dir = lock_data.get("output_dir", "")
             saved_pid = lock_data.get("pid", 0)
-            # 检查进程是否还活着
+            # 检查进程是否还活着（仅 Windows 可用 OpenProcess；其他平台按 PID 存活判断）
             alive = False
             if saved_pid and saved_dir and os.path.isdir(saved_dir):
-                try:
-                    import ctypes
-                    kernel32 = ctypes.windll.kernel32
-                    handle = kernel32.OpenProcess(0x0400, False, saved_pid)  # PROCESS_QUERY_INFORMATION
-                    if handle:
-                        kernel32.CloseHandle(handle)
+                if os.name == "nt":
+                    try:
+                        import ctypes
+                        kernel32 = ctypes.windll.kernel32
+                        handle = kernel32.OpenProcess(0x0400, False, saved_pid)  # PROCESS_QUERY_INFORMATION
+                        if handle:
+                            kernel32.CloseHandle(handle)
+                            alive = True
+                    except Exception:
+                        pass  # 非 Windows 或进程不存在
+                else:
+                    try:
+                        os.kill(saved_pid, 0)  # 仅探测是否存在
                         alive = True
-                except Exception:
-                    pass  # 非 Windows 或进程不存在
+                    except (OSError, ProcessLookupError):
+                        alive = False
             if alive:
                 # 进程还在跑 → 恢复轮询状态
                 st.session_state["md_output_dir"] = saved_dir
                 st.session_state["md_process"] = "restored"  # 标记为非 None，触发轮询分支
                 st.session_state["md_progress"] = 0.0
                 st.session_state["md_status"] = "🔄 页面刷新，重连模拟进程..."
-                _recovered_from_lock = True
             else:
                 # 进程已死 → 尝试从 result.json 恢复结果
                 rf = os.path.join(saved_dir, "result.json")
@@ -162,24 +168,6 @@ def page_molecular_dynamics():
     # ====== 从 worker 临时目录恢复结果（兜底）======
     if (st.session_state.get("md_result") is None
             and st.session_state.get("md_process") is None):
-        import glob
-        worker_dirs = sorted(glob.glob(os.path.join(tempfile.gettempdir(), "md_worker_*")),
-                             key=os.path.getmtime, reverse=True)
-        for wd in worker_dirs[:3]:
-            rf = os.path.join(wd, "result.json")
-            if os.path.exists(rf):
-                try:
-                    with open(rf, "r") as f:
-                        worker_result = json.load(f)
-                    if worker_result.get("status") == "success":
-                        st.session_state["md_result"] = worker_result
-                        st.session_state["md_analysis"] = worker_result.get("analysis")
-                        st.session_state["md_progress"] = 1.0
-                        st.session_state["md_status"] = "✅ 模拟完成（自动恢复）"
-                        _save_result_cache(_RESULT_CACHE_FILE, worker_result)
-                        break
-                except Exception:
-                    pass
         import glob
         worker_dirs = sorted(glob.glob(os.path.join(tempfile.gettempdir(), "md_worker_*")),
                              key=os.path.getmtime, reverse=True)
@@ -286,6 +274,9 @@ def page_molecular_dynamics():
             if uploaded:
                 st.session_state["md_pdb_content"] = uploaded.read()
                 st.success(f"✅ 已加载: {uploaded.name}")
+            elif st.session_state.get("md_pdb_content") is not None:
+                # 用户用 X 移除了文件 → 同步清除缓存，避免用过期内容启动模拟
+                st.session_state["md_pdb_content"] = None
 
         # ---- 模拟参数 ----
         st.divider()
@@ -296,9 +287,9 @@ def page_molecular_dynamics():
             total_steps = st.number_input(
                 "模拟步数", min_value=100, max_value=500000,
                 value=5000, step=1000, key="md_total_steps",
-                help="每步 4 fs（SHAKE 约束氢键）。5000 步 = 20 ps，2500 步 = 10 ps",
+                help="每步 2 fs（LangevinMiddleIntegrator）。5000 步 = 10 ps，25000 步 = 50 ps",
             )
-            sim_time_ps = total_steps * 0.004  # 4 fs per step with SHAKE
+            sim_time_ps = total_steps * 0.002  # 2 fs per step
             st.caption(f"≈ {sim_time_ps:.1f} ps 模拟时间")
 
         with col_b:
@@ -551,8 +542,21 @@ def page_molecular_dynamics():
                     progress_bar.progress(1.0)
 
                     if os.path.exists(result_file):
-                        with open(result_file, "r", encoding="utf-8") as f:
-                            result_data = json.load(f)
+                        try:
+                            with open(result_file, "r", encoding="utf-8") as f:
+                                result_data = json.load(f)
+                        except (json.JSONDecodeError, OSError):
+                            # worker 可能被 kill 导致 result.json 写了一半（截断）
+                            st.session_state["md_error"] = "结果文件损坏（worker 可能被强制终止）"
+                            st.session_state["md_status"] = "❌ 模拟进程异常退出"
+                            st.session_state["md_process"] = None
+                            _clear_result_cache(_RESULT_CACHE_FILE)
+                            status_placeholder.error("❌ 模拟进程异常退出（结果文件不完整）")
+                            try:
+                                os.remove(_WORKER_LOCK_FILE)
+                            except Exception:
+                                pass
+                            return
 
                         if result_data.get("status") == "error":
                             error_msg = result_data.get("error_message", "未知错误")
@@ -579,8 +583,7 @@ def page_molecular_dynamics():
                             _save_result_cache(_RESULT_CACHE_FILE, result_data)
                             status_placeholder.success("✅ 模拟完成！")
                             st.session_state["md_go_to_results"] = True
-                            if st.button("➡️ 查看结果", type="primary"):
-                                st.rerun()
+                            st.success("✅ 模拟已完成，请切换到 **Step 3** 标签页查看结果与分析。")
                     else:
                         st.session_state["md_error"] = "worker 崩溃（无结果文件）"
                         st.session_state["md_status"] = "❌ 模拟进程异常退出"
@@ -701,9 +704,21 @@ def page_molecular_dynamics():
             # ---- 清除结果 ----
             st.divider()
             if st.button("🗑️ 清除模拟结果", type="secondary", use_container_width=True):
+                # 同时删除 worker 输出目录，否则刷新后兜底恢复会重新找回旧结果
+                try:
+                    import glob
+                    out_dir = st.session_state.get("md_output_dir", "")
+                    if out_dir and os.path.isdir(out_dir):
+                        shutil.rmtree(out_dir, ignore_errors=True)
+                    else:
+                        for wd in glob.glob(os.path.join(tempfile.gettempdir(), "md_worker_*")):
+                            shutil.rmtree(wd, ignore_errors=True)
+                except Exception:
+                    pass
                 _clear_result_cache(_RESULT_CACHE_FILE)
                 for key in ["md_result", "md_analysis", "md_process", "md_error",
-                            "md_progress", "md_status", "md_go_to_run", "md_go_to_results"]:
+                            "md_progress", "md_status", "md_go_to_run", "md_go_to_results",
+                            "md_output_dir", "md_output"]:
                     if key in st.session_state:
                         del st.session_state[key]
                 st.rerun()

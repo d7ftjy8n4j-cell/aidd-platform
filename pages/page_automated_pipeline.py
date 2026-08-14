@@ -6,7 +6,6 @@
 
 import streamlit as st
 import pandas as pd
-import io
 import time
 from datetime import datetime
 
@@ -57,10 +56,8 @@ def page_automated_pipeline():
         )
         batch_source = st.session_state.get("batch_data_source", "数据获取")
 
-        # 有批量数据时始终切换为"已导入数据"模式
-        if has_batch_data:
-            st.session_state["pipeline_input_mode"] = "📦 已导入数据"
-
+        # 有批量数据时提示用户切换到“已导入数据”模式（不再强制改写 radio 状态，
+        # 否则用户永远无法选择其他输入方式，且下方提示分支成为死代码）
         input_mode = st.radio(
             "选择输入方式",
             ["单个SMILES", "批量上传CSV", "📦 已导入数据"],
@@ -209,6 +206,8 @@ def page_automated_pipeline():
         serializable_results = [r.to_dict() if hasattr(r, 'to_dict') else r for r in results]
         st.session_state['pipeline_results'] = serializable_results
         st.session_state['pipeline_smiles_list'] = smiles_list
+        # 同步累计预测计数（与分子预测页一致），保证状态栏统计准确
+        st.session_state['prediction_count'] = st.session_state.get('prediction_count', 0) + len(results)
         # 触发重绘以显示完整结果（run_clicked 会在重绘后变 False，但结果已持久化）
         st.rerun()
     
@@ -239,7 +238,8 @@ def _render_pipeline_results(pipeline: Pipeline):
     # 统计信息
     verdicts = df_summary["最终判定"].tolist()
     recommended = sum(1 for v in verdicts if v.startswith("✅"))
-    active_but_poor = sum(1 for v in verdicts if v.startswith("⚠️ 活性"))
+    # 覆盖双模型与单模型（RF/GNN 单独）的“活性但成药性不佳”判定
+    active_but_poor = sum(1 for v in verdicts if "成药性不佳" in v)
     inactive = sum(1 for v in verdicts if v.startswith("❌"))
     divergent = sum(1 for v in verdicts if "分歧" in v or "无法" in v)
     
@@ -282,17 +282,17 @@ def _render_pipeline_results(pipeline: Pipeline):
         st.session_state.pop('pipeline_smiles_list', None)
         st.rerun()
 
-    # KNIME 导出
+    # KNIME 导出（results 为 dict 列表：已在存入 session_state 前经 to_dict() 转换）
     if results is not None and len(results) > 0:
         try:
             export_rows = []
             for r in results:
-                row = {"smiles": r.smiles}
-                for attr in dir(r):
-                    if not attr.startswith("_") and attr != "smiles":
-                        val = getattr(r, attr, None)
-                        if isinstance(val, (str, int, float, bool)) and val is not None:
-                            row[attr] = val
+                if not isinstance(r, dict):
+                    r = r.to_dict() if hasattr(r, "to_dict") else vars(r)
+                row = {"smiles": r.get("smiles", "")}
+                for k, val in r.items():
+                    if k != "smiles" and isinstance(val, (str, int, float, bool)) and val is not None:
+                        row[k] = val
                 export_rows.append(row)
             if export_rows:
                 import pandas as _pd
@@ -301,8 +301,10 @@ def _render_pipeline_results(pipeline: Pipeline):
                     title="自动化流程结果",
                     key_prefix="pipeline_knime",
                 )
-        except Exception:
-            pass
+        except Exception as e:
+            import logging
+            logging.warning("KNIME 导出失败: %s", e)
+            st.error(f"❌ KNIME 导出失败: {e}")
 
 
 def _show_detailed_report(pipeline: Pipeline, result: SingleMoleculeResult, idx: int = 1):

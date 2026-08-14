@@ -10,10 +10,6 @@ try:
 except Exception:
     py3Dmol = None
 
-try:
-    from stmol import showmol
-except Exception:
-    showmol = None
 
 class StructureVisualizer:
     def __init__(self, width=800, height=600):

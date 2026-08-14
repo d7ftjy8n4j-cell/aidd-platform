@@ -30,7 +30,6 @@ import json
 import os
 import math
 import logging
-from pathlib import Path
 
 # ---- Windows: 修复 OpenMP 冲突 + DLL 搜索路径 ----
 if sys.platform == "win32":
@@ -95,7 +94,7 @@ def _sanitize_float(val):
 
 
 def _sanitize_for_json(obj):
-    """递归清理对象中的 NaN/Inf 浮点数"""
+    """递归清理对象中的 NaN/Inf 浮点数及单位对象（mdtraj Quantity）"""
     if isinstance(obj, dict):
         return {k: _sanitize_for_json(v) for k, v in obj.items()}
     elif isinstance(obj, list):
@@ -104,6 +103,18 @@ def _sanitize_for_json(obj):
         return _sanitize_float(obj)
     elif np is not None and isinstance(obj, np.ndarray):
         return [_sanitize_float(float(v)) for v in obj.tolist()]
+    elif isinstance(obj, (int, str, bool)) or obj is None:
+        return obj
+    # mdtraj/openmm Quantity 等带单位对象 → 转纯数值，避免 json.dump 崩溃
+    elif hasattr(obj, "value_in_unit"):
+        try:
+            vals = obj.value_in_unit(obj.unit)
+            return _sanitize_for_json(np.asarray(vals).tolist())
+        except Exception:
+            try:
+                return float(obj)
+            except Exception:
+                return str(obj)
     return obj
 
 
@@ -113,12 +124,15 @@ def write_result(output_dir: str, result: dict):
     safe = {"status": result.get("status", "success")}
     for k, v in result.items():
         if k in ("topology_pdb", "trajectory_xtc", "mean_pdb_path",
-                 "num_atoms", "log", "tmpdir", "analysis",
+                 "num_atoms", "log", "tmpdir", "analysis", "analysis_error",
                  "energy_log_csv", "error_message", "platform"):
             safe[k] = v
     clean = _sanitize_for_json(safe)
-    with open(result_file, "w", encoding="utf-8") as f:
+    # 原子写入：先写临时文件再 rename，避免 worker 被 kill 时留下截断的 result.json
+    tmp_file = result_file + ".tmp"
+    with open(tmp_file, "w", encoding="utf-8") as f:
         json.dump(clean, f, indent=2, ensure_ascii=False)
+    os.replace(tmp_file, result_file)
 
 
 def main():
@@ -191,6 +205,7 @@ def main():
         except Exception as e:
             logger.warning(f"轨迹分析失败: {e}")
             result["analysis"] = None
+            result["analysis_error"] = str(e)  # 记录失败原因，避免页面误报"模拟完成"
 
         result["energy_log_csv"] = energy_csv  # 已由 progress_cb 实时写入
         result["status"] = "success"

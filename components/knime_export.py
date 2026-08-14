@@ -10,7 +10,7 @@ from utils.knime_export_utils import KNIMEExporter, WORKFLOW_SUGGESTIONS
 
 
 def knime_export_section(
-    data: pd.DataFrame,
+    data: Optional[pd.DataFrame],
     title: str = "分子数据",
     key_prefix: str = "knime",
     metadata: Optional[dict] = None,
@@ -20,8 +20,8 @@ def knime_export_section(
 
     参数
     ----------
-    data : pd.DataFrame
-        要导出的分子数据 (必须含 SMILES 列)
+    data : Optional[pd.DataFrame]
+        要导出的分子数据 (必须含 SMILES 列；允许 None/空)
     title : str
         导出文件名称前缀
     key_prefix : str
@@ -66,7 +66,9 @@ def knime_export_section(
                 exporter = KNIMEExporter(data, metadata)
                 suggested = WORKFLOW_SUGGESTIONS.get(exporter.module_type, "W1-W8")
                 st.caption(f"💡 推荐后续 KNIME 工作流: **{suggested}**")
-            except Exception:
+            except (ValueError, AttributeError) as _e:
+                # 数据缺 SMILES 列等真实错误：向用户明示，而不是静默吞掉
+                st.caption(f"⚠️ 无法识别导出数据: {_e}")
                 st.caption("💡 [TeachOpenCADD-KNIME Hub](https://hub.knime.com/volkamerlab/space/TeachOpenCADD)")
 
         if do_export:

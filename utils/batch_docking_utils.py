@@ -15,10 +15,9 @@ import tempfile
 import logging
 import shutil
 from pathlib import Path
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Optional
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-import numpy as np
 import pandas as pd
 
 # 复用单配体模块中的核心函数
@@ -133,8 +132,9 @@ def dock_single_ligand(
             "pose_count": len(results),
             "poses": results,
             "output_sdf": out_sdf,
-            "success": True,
-            "error": None,
+            # smina 正常退出但未产出任何构象时按失败处理，避免下游误计成功
+            "success": bool(results),
+            "error": None if results else "smina 未产出任何对接构象",
         }
     except Exception as e:
         return {

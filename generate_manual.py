@@ -2,13 +2,21 @@
 # -*- coding: utf-8 -*-
 """生成药尘光用户手册 .docx 文件"""
 
+import sys
+
+# Windows GBK 控制台防御：脚本内含 emoji 的 print 在 GBK 下会抛 UnicodeEncodeError
+if sys.platform == "win32":
+    for _stream in (sys.stdout, sys.stderr):
+        try:
+            _stream.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+
 from docx import Document
-from docx.shared import Inches, Pt, Cm, RGBColor, Emu
+from docx.shared import Pt, Cm, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.enum.table import WD_TABLE_ALIGNMENT
-from docx.enum.section import WD_ORIENT
-from docx.oxml.ns import qn, nsdecls
-from docx.oxml import parse_xml
+from docx.oxml.ns import qn
 import datetime
 
 doc = Document()
@@ -1023,21 +1031,29 @@ for _ in range(3):
 
 add_para(f"文档版本：V2.0.0", alignment=WD_ALIGN_PARAGRAPH.CENTER, size=11)
 add_para(f"更新日期：{datetime.date.today().strftime('%Y年%m月%d日')}", alignment=WD_ALIGN_PARAGRAPH.CENTER, size=11)
-add_para("© 2026 dadamingli  |  MIT License", alignment=WD_ALIGN_PARAGRAPH.CENTER, size=11)
+add_para(f"© {datetime.date.today().year} dadamingli  |  MIT License", alignment=WD_ALIGN_PARAGRAPH.CENTER, size=11)
 
 # ============================================================
 # 保存
 # ============================================================
 import os as _os
-output_path = r"C:\Users\dadamingli\Desktop\my-egfr-v2\药尘光-用户手册-V2.0.docx"
+from pathlib import Path as _Path
+
+# 输出到脚本所在目录（避免硬编码个人桌面路径导致其他机器/CI 上崩溃）
+_script_dir = _Path(__file__).resolve().parent
+output_path = str(_script_dir / "药尘光-用户手册-V2.0.docx")
 doc.save(output_path)
 print(f"用户手册已生成: {output_path}")
 
-# 同步一份到桌面，便于直接取用
-desktop_manual = r"C:\Users\dadamingli\Desktop\药尘光-用户手册-V2.0.docx"
-try:
-    _os.remove(desktop_manual)
-except FileNotFoundError:
-    pass
-doc.save(desktop_manual)
-print(f"已同步到桌面: {desktop_manual}")
+# 同步一份到桌面（仅当桌面存在时）
+desktop_dir = _Path.home() / "Desktop"
+if desktop_dir.is_dir():
+    desktop_manual = str(desktop_dir / "药尘光-用户手册-V2.0.docx")
+    try:
+        _os.remove(desktop_manual)
+    except FileNotFoundError:
+        pass
+    doc.save(desktop_manual)
+    print(f"已同步到桌面: {desktop_manual}")
+else:
+    print("未找到桌面目录，跳过同步")

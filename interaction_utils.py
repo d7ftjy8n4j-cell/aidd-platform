@@ -7,6 +7,7 @@
 2. 激酶 IFP 指纹相似性分析 (基于 KLIFS REST API)
 """
 import os
+import re
 import tempfile
 import urllib.request
 import logging
@@ -92,11 +93,19 @@ def analyze_plip(pdb_id=None, pdb_content=None):
 
     # 1. 获取 PDB 文件
     if pdb_id:
+        # 严格校验 PDB ID，防止路径遍历
+        if not re.fullmatch(r"[0-9][A-Za-z0-9]{3}", pdb_id):
+            raise ValueError(f"无效的 PDB ID: {pdb_id!r}（应为 4 位字母数字，如 3POZ）")
         pdb_dir = tempfile.gettempdir()
         pdb_path = os.path.join(pdb_dir, f"{pdb_id}.pdb")
         if not os.path.exists(pdb_path):
             pdb_url = f"https://files.rcsb.org/download/{pdb_id}.pdb"
-            urllib.request.urlretrieve(pdb_url, pdb_path)
+            resp = requests.get(pdb_url, timeout=30)
+            resp.raise_for_status()
+            if not resp.text.lstrip().startswith(("HEADER", "ATOM", "REMARK", "CRYST1", "MODEL", "TITLE")):
+                raise ValueError(f"PDB ID {pdb_id} 无效或返回内容不是 PDB 数据")
+            with open(pdb_path, "w", encoding="utf-8") as f:
+                f.write(resp.text)
         logger.info(f"PDB 文件已下载: {pdb_path}")
     elif pdb_content:
         with tempfile.NamedTemporaryFile(delete=False, suffix='.pdb', mode='w') as tmp:
@@ -174,19 +183,16 @@ def analyze_plip(pdb_id=None, pdb_content=None):
 KLIFS_BASE_URL = "https://klifs.vu-compmedchem.nl/api/v2"
 
 
-@st.cache_data(ttl=86400)  # 缓存 24 小时
 def _klifs_api_get(endpoint: str, params: dict = None):
     """
     统一的 KLIFS API 调用封装，带缓存。
+    请求失败时抛出异常（st.cache_data 默认不缓存异常），
+    避免临时故障被缓存 24 小时；调用方负责捕获并降级。
     """
     url = f"{KLIFS_BASE_URL}/{endpoint.lstrip('/')}"
-    try:
-        resp = requests.get(url, params=params, timeout=30)
-        resp.raise_for_status()
-        return resp.json()
-    except requests.RequestException as e:
-        logger.error(f"KLIFS API 请求失败 [{url}]: {e}")
-        return None
+    resp = requests.get(url, params=params, timeout=30)
+    resp.raise_for_status()
+    return resp.json()
 
 
 def _fetch_kinase_id(kinase_name: str) -> int | None:
@@ -194,7 +200,11 @@ def _fetch_kinase_id(kinase_name: str) -> int | None:
     通过激酶名称查找 KLIFS 内部 ID。
     KLIFS API: GET /kinases?kinase_name={name}
     """
-    kinases = _klifs_api_get("kinases", {"kinase_name": kinase_name})
+    try:
+        kinases = _klifs_api_get("kinases", {"kinase_name": kinase_name})
+    except requests.RequestException as e:
+        logger.error(f"KLIFS 激酶查询失败 [{kinase_name}]: {e}")
+        return None
     if kinases and isinstance(kinases, list) and len(kinases) > 0:
         return kinases[0].get("kinase_ID")
     return None
@@ -206,15 +216,22 @@ def _fetch_structures_for_kinase_id(kinase_id: int) -> list:
     KLIFS API: GET /structures?kinase_ID={id}
     过滤条件：人源、分辨率 ≤ 3.0 Å、质量分 ≥ 6、DFG-in
     """
-    structures = _klifs_api_get("structures", {"kinase_ID": kinase_id})
+    try:
+        structures = _klifs_api_get("structures", {"kinase_ID": kinase_id})
+    except requests.RequestException as e:
+        logger.error(f"KLIFS 结构查询失败 [kinase_ID={kinase_id}]: {e}")
+        return []
     if not structures or not isinstance(structures, list):
         return []
 
     filtered = []
     for s in structures:
+        res = s.get("resolution")
+        qs = s.get("quality_score")
+        # KLIFS v2 API 对 NMR/预测结构可能返回 null，需显式判空
         if (s.get("species") == "Human"
-                and s.get("resolution", 999) <= 3.0
-                and s.get("quality_score", 0) >= 6
+                and res is not None and float(res) <= 3.0
+                and qs is not None and float(qs) >= 6
                 and s.get("DFG") == "in"):
             filtered.append(s)
     return filtered
@@ -226,7 +243,11 @@ def _fetch_ifp_for_structure(structure_id: int) -> str | None:
     KLIFS API: GET /interactions/structure?structure_ID={id}
     返回 85 位的 0/1 字符串。
     """
-    data = _klifs_api_get("interactions/structure", {"structure_ID": structure_id})
+    try:
+        data = _klifs_api_get("interactions/structure", {"structure_ID": structure_id})
+    except requests.RequestException as e:
+        logger.error(f"KLIFS IFP 查询失败 [structure_ID={structure_id}]: {e}")
+        return None
     if data:
         # KLIFS API 返回单条记录（dict）而非列表
         if isinstance(data, dict):

@@ -7,7 +7,6 @@
 
 from typing import List, Optional, Tuple
 
-import streamlit as st
 from rdkit import Chem
 from rdkit.Chem import rdFMCS, Draw
 
@@ -90,11 +89,11 @@ def highlight_mcs_in_molecules(
     -------
     list of PIL.Image
     """
-    mols = [
-        Chem.MolFromSmiles(smi)
-        for smi in smiles_list
-        if Chem.MolFromSmiles(smi) is not None
-    ]
+    mols = []
+    for smi in smiles_list:
+        mol = Chem.MolFromSmiles(smi)
+        if mol is not None:
+            mols.append(mol)
     if not mols:
         return []
 
@@ -118,6 +117,7 @@ def get_mcs_smarts_as_mol(mcs_smarts: str):
         mol = Chem.MolFromSmarts(mcs_smarts)
         if mol:
             return Draw.MolToImage(mol, size=(400, 200))
-    except Exception:
-        pass
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning("MCS SMARTS 渲染失败: %s", e)
     return None

@@ -3,12 +3,11 @@
 MM-GBSA 结合自由能估算页面
 
 从分子动力学 (MD) 轨迹计算蛋白-配体结合自由能 (ΔG)。
-使用 GB-Neck2 隐式溶剂模型，支持选择多帧采样、结果可视化与下载。
+使用 GB-OBC1 (igb=2) 隐式溶剂模型，支持选择多帧采样、结果可视化与下载。
 """
 
 import json
 import os
-import tempfile
 
 import pandas as pd
 import streamlit as st
@@ -74,11 +73,12 @@ def page_mmgbsa():
     with col_left:
         st.subheader("📂 输入文件")
 
-        # 如果 md_output 已有数据，默认切换到缓存模式
-        _has_cached = (
+        # 如果 md_output 已有完整数据，默认切换到缓存模式
+        _has_cached = bool(
             "md_output" in st.session_state
             and st.session_state.md_output
             and st.session_state.md_output.get("topology_pdb")
+            and st.session_state.md_output.get("trajectory_xtc")
         )
         default_mode = 1 if _has_cached else 0
 
@@ -90,6 +90,9 @@ def page_mmgbsa():
             key="mmgbsa_input_mode",
             help="手动输入文件路径，或从刚完成的 MD 模拟会话中读取",
         )
+        # 缓存不完整时回退到手动路径（保证 radio 显示与实际输入一致）
+        if input_mode == "会话缓存的 MD 结果" and not _has_cached:
+            input_mode = "手动路径"
 
         top_file = ""
         traj_file = ""
@@ -210,7 +213,21 @@ def page_mmgbsa():
                 st.error(f"❌ 计算失败: {e}")
                 st.stop()
 
-        # ---------- 结果展示 ----------
+        # 结果存入 session_state：后续交互（下载/调参）重跑时不丢失
+        st.session_state["mmgbsa_last_result"] = {
+            **result,
+            "_top_file": top_file,
+            "_traj_file": traj_file,
+        }
+        st.rerun()
+
+    # ---------- 结果展示（基于 session_state 缓存，不依赖本次点击） ----------
+    cached = st.session_state.get("mmgbsa_last_result")
+    if cached is not None:
+        result = cached
+        top_file = result.get("_top_file", top_file)
+        traj_file = result.get("_traj_file", traj_file)
+
         st.success(f"✅ MM-GBSA 计算完成！（{result['n_frames']} 帧）")
 
         # 1. 核心指标
@@ -324,7 +341,7 @@ def page_mmgbsa():
                 mime="application/json",
             )
 
-    # ---------- 空状态提示 ----------
+    # ---------- 空状态提示（仅当没有缓存结果时） ----------
     else:
         st.info(
             "👈 请在左侧输入 MD 轨迹文件路径并设置参数后点击计算。"

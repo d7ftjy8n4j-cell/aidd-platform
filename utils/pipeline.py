@@ -362,9 +362,14 @@ class Pipeline:
         # 判断双模型一致性
         rf_pred = steps.get("rf", {}).get("prediction")
         gnn_pred = steps.get("gnn", {}).get("prediction")
-        adme_pass = summary.get("adme_pass", False)
-        subst_pass = summary.get("substructure_pass", False)
-        
+        rf_ok = steps.get("rf", {}).get("success", rf_pred is not None)
+        gnn_ok = steps.get("gnn", {}).get("success", gnn_pred is not None)
+        # ADME/子结构：仅当步骤实际执行（无 error 键）时才算作“通过关卡”
+        adme_ran = "error" not in steps.get("adme", {})
+        subst_ran = "error" not in steps.get("substructure", {})
+        adme_pass = summary.get("adme_pass", False) if adme_ran else True
+        subst_pass = summary.get("substructure_pass", False) if subst_ran else True
+
         if enable_rf and enable_gnn:
             if rf_pred is not None and gnn_pred is not None:
                 if rf_pred == gnn_pred:
@@ -379,14 +384,18 @@ class Pipeline:
             else:
                 result.summary["final_verdict"] = "⚠️ 部分模型预测失败，无法综合判定"
         elif enable_rf and not enable_gnn:
-            if rf_pred == 1 and adme_pass and subst_pass:
+            if rf_pred is None or not rf_ok:
+                result.summary["final_verdict"] = "⚠️ RF预测失败，无法判定"
+            elif rf_pred == 1 and adme_pass and subst_pass:
                 result.summary["final_verdict"] = "✅ RF预测活性 + 成药性通过"
             elif rf_pred == 1:
                 result.summary["final_verdict"] = "⚠️ RF预测活性但成药性不佳"
             else:
                 result.summary["final_verdict"] = "❌ RF预测非活性"
         elif enable_gnn and not enable_rf:
-            if gnn_pred == 1 and adme_pass and subst_pass:
+            if gnn_pred is None or not gnn_ok:
+                result.summary["final_verdict"] = "⚠️ GNN预测失败，无法判定"
+            elif gnn_pred == 1 and adme_pass and subst_pass:
                 result.summary["final_verdict"] = "✅ GNN预测活性 + 成药性通过"
             elif gnn_pred == 1:
                 result.summary["final_verdict"] = "⚠️ GNN预测活性但成药性不佳"

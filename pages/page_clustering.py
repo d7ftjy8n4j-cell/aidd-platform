@@ -9,9 +9,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-import tempfile
 import os
-from io import BytesIO
 from rdkit import Chem
 from rdkit.Chem import Draw
 from rdkit import rdBase
@@ -242,36 +240,40 @@ def show_clustering_page():
         ]
         fp_array = np.array([list(fp) for fp in fps])
 
-        n_neighbors = min(15, len(fp_array) - 1)
-        reducer = umap.UMAP(
-            n_neighbors=max(2, n_neighbors),
-            min_dist=0.1,
-            random_state=42,
-        )
-        embedding = reducer.fit_transform(fp_array)
+        # UMAP 要求 1 <= n_neighbors < n_samples；样本过少时直接提示并跳过
+        if len(fp_array) < 3:
+            st.info("样本数不足 3 个，跳过 UMAP 降维可视化。")
+        else:
+            n_neighbors = max(1, min(15, len(fp_array) - 1))
+            reducer = umap.UMAP(
+                n_neighbors=n_neighbors,
+                min_dist=0.1,
+                random_state=42,
+            )
+            embedding = reducer.fit_transform(fp_array)
 
-        # 着色：按簇 ID
-        cluster_labels = np.full(len(molecules), -1, dtype=int)
-        for r in summary.results:
-            for idx in r.member_indices:
-                cluster_labels[idx] = r.cluster_id
+            # 着色：按簇 ID
+            cluster_labels = np.full(len(molecules), -1, dtype=int)
+            for r in summary.results:
+                for idx in r.member_indices:
+                    cluster_labels[idx] = r.cluster_id
 
-        fig, ax = plt.subplots(figsize=(8, 6))
-        n_clusters = summary.n_clusters
-        cmap = plt.cm.tab20 if n_clusters <= 20 else plt.cm.gist_rainbow
-        scatter = ax.scatter(
-            embedding[:, 0],
-            embedding[:, 1],
-            c=cluster_labels,
-            cmap=cmap,
-            s=12,
-            alpha=0.7,
-        )
-        ax.set_title("UMAP 降维投影 (按簇着色)")
-        ax.set_xlabel("UMAP-1")
-        ax.set_ylabel("UMAP-2")
-        st.pyplot(fig)
-        plt.close(fig)
+            fig, ax = plt.subplots(figsize=(8, 6))
+            n_clusters = summary.n_clusters
+            cmap = plt.cm.tab20 if n_clusters <= 20 else plt.cm.gist_rainbow
+            scatter = ax.scatter(
+                embedding[:, 0],
+                embedding[:, 1],
+                c=cluster_labels,
+                cmap=cmap,
+                s=12,
+                alpha=0.7,
+            )
+            ax.set_title("UMAP 降维投影 (按簇着色)")
+            ax.set_xlabel("UMAP-1")
+            ax.set_ylabel("UMAP-2")
+            st.pyplot(fig)
+            plt.close(fig)
 
     except ImportError:
         st.info("💡 安装 `umap-learn` 可启用化学空间降维可视化")
@@ -368,13 +370,20 @@ def show_clustering_page():
                 st.session_state.pop("pipeline_smiles_list", None)
                 st.rerun()
 
-    # KNIME 导出
+    # KNIME 导出（簇中心 SMILES 直接写入，修复导出永远缺 SMILES 列的问题）
     try:
         export_rows = []
         for r in summary.results:
-            row = {"cluster_id": r.cluster_id, "size": r.size}
-            if hasattr(r, "centroid_smiles"):
-                row["smiles"] = r.centroid_smiles
+            row = {
+                "cluster_id": r.cluster_id,
+                "size": r.size,
+            }
+            # ClusterResult 无 centroid_smiles 属性，从中心分子索引取 SMILES
+            if r.centroid_index is not None and 0 <= r.centroid_index < len(molecules):
+                try:
+                    row["smiles"] = Chem.MolToSmiles(molecules[r.centroid_index])
+                except Exception:
+                    pass
             export_rows.append(row)
         if export_rows:
             knime_export_section(
@@ -382,8 +391,10 @@ def show_clustering_page():
                 title="聚类分析结果",
                 key_prefix="cluster_knime",
             )
-    except Exception:
-        pass
+    except Exception as e:
+        import logging
+        logging.warning("聚类 KNIME 导出失败: %s", e)
+        st.error(f"❌ KNIME 导出失败: {e}")
 
 
 if __name__ == "__main__":

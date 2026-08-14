@@ -56,6 +56,10 @@ def page_mcs_analysis():
         )
         if preset != "-- 手动输入 --":
             default_text = PRESET_MOLECULES[preset]
+            # 模板选择后同步到输入框（st.text_area 用 key 绑定，仅首次默认值不生效）
+            if st.session_state.get("mcs_last_preset") != preset:
+                st.session_state["mcs_input"] = PRESET_MOLECULES[preset]
+                st.session_state["mcs_last_preset"] = preset
         else:
             default_text = (
                 "CC1=C(C=C(C=C1)NC(=O)C2=CC=C(C=C2)Cl)NC3=NC=CC(=N3)C4=CN=CN4\n"
@@ -67,6 +71,7 @@ def page_mcs_analysis():
             "输入 SMILES（每行一个）",
             default_text,
             height=160,
+            key="mcs_input",
             help="每行一个 SMILES 字符串，至少 2 个分子",
         )
 
@@ -76,15 +81,31 @@ def page_mcs_analysis():
             type=["txt", "csv", "smi"],
         )
         if uploaded_file is not None:
-            content = uploaded_file.read().decode("utf-8")
-            if uploaded_file.name.endswith(".csv"):
-                df_csv = pd.read_csv(io.StringIO(content))
-                if "SMILES" in df_csv.columns:
-                    input_text = "\n".join(df_csv["SMILES"].dropna().tolist())
+            try:
+                content = uploaded_file.read().decode("utf-8")
+            except UnicodeDecodeError:
+                st.error("❌ 文件编码不是 UTF-8，请另存为 UTF-8 后重新上传（Windows 下可用记事本另存为 UTF-8）")
+                content = None
+            if content is not None:
+                if uploaded_file.name.endswith(".csv"):
+                    try:
+                        df_csv = pd.read_csv(io.StringIO(content))
+                    except Exception as e:
+                        st.error(f"❌ CSV 解析失败: {e}")
+                        df_csv = None
+                    if df_csv is not None:
+                        if "SMILES" in df_csv.columns:
+                            input_text = "\n".join(df_csv["SMILES"].dropna().tolist())
+                        else:
+                            # 无表头时：若首列名本身是可解析的 SMILES，则按 header=None 重读，避免丢第一行
+                            try:
+                                if Chem.MolFromSmiles(str(df_csv.columns[0])) is not None:
+                                    df_csv = pd.read_csv(io.StringIO(content), header=None)
+                            except Exception:
+                                pass
+                            input_text = "\n".join(df_csv.iloc[:, 0].dropna().astype(str).tolist())
                 else:
-                    input_text = "\n".join(df_csv.iloc[:, 0].dropna().astype(str).tolist())
-            else:
-                input_text = content
+                    input_text = content
 
     with col_right:
         st.subheader("⚙️ 参数设置")

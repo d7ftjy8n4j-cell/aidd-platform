@@ -1,13 +1,14 @@
 # 使用Python 3.11的官方镜像（与本地开发环境一致，兼容 torch 2.5.1）
 FROM python:3.11-slim
 
-# 安装系统依赖（解决RDKit问题）
+# 安装系统依赖（解决RDKit问题；bookworm 中 libgl1-mesa-glx 已拆分为 libgl1/libglx-mesa0）
 RUN apt-get update && apt-get install -y \
     libxrender1 \
     libsm6 \
     libxext6 \
     libfontconfig1 \
-    libgl1-mesa-glx \
+    libgl1 \
+    libglx-mesa0 \
     && rm -rf /var/lib/apt/lists/*
 
 # 设置工作目录

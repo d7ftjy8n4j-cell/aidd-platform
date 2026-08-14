@@ -9,6 +9,7 @@
 """
 
 import os
+import re
 import tempfile
 import subprocess
 import urllib.request
@@ -48,7 +49,7 @@ def _ensure_py3dmol():
         _py3dmol_available = True
     except ImportError:
         _py3dmol_available = False
-    return _nglview_available
+    return _py3dmol_available
 
 
 # ---------- 1. PDB → PDBQT 转换（蛋白） ----------
@@ -74,8 +75,7 @@ def pdb_to_pdbqt(pdb_path: str, pdbqt_path: str, pH: float = 7.4):
     molecule = list(pybel.readfile("pdb", str(pdb_path)))[0]
     molecule.OBMol.CorrectForPH(pH)
     molecule.addh()
-    for atom in molecule.atoms:
-        atom.OBAtom.GetPartialCharge()
+    # NOTE: GetPartialCharge() 只读取不设置，无实际操作；PDBQT 写出时 OpenBabel 自动计算电荷
     molecule.write("pdbqt", str(pdbqt_path), overwrite=True)
 
 
@@ -103,8 +103,8 @@ def smiles_to_pdbqt(smiles: str, pdbqt_path: str, pH: float = 7.4):
     molecule.OBMol.CorrectForPH(pH)
     molecule.addh()
     molecule.make3D(forcefield="mmff94s", steps=10000)
-    for atom in molecule.atoms:
-        atom.OBAtom.GetPartialCharge()
+    # NOTE: 原代码的 GetPartialCharge() 只读取不设置，是无操作；
+    # OpenBabel 写 PDBQT 时会自动计算 Gasteiger 电荷
     molecule.write("pdbqt", str(pdbqt_path), overwrite=True)
 
 
@@ -115,11 +115,26 @@ PDB_CACHE_DIR = os.path.join(tempfile.gettempdir(), "pdb_cache")
 
 def _download_pdb(pdb_id: str) -> str:
     """从 RCSB 下载 PDB 文件并缓存到本地临时目录"""
+    # 严格校验 PDB ID（4 位字母数字，首字符为数字），防止路径遍历
+    if not re.fullmatch(r"[0-9][A-Za-z0-9]{3}", pdb_id):
+        raise ValueError(f"无效的 PDB ID: {pdb_id!r}（应为 4 位字母数字，如 3POZ）")
     os.makedirs(PDB_CACHE_DIR, exist_ok=True)
     pdb_path = os.path.join(PDB_CACHE_DIR, f"{pdb_id}.pdb")
     if not os.path.exists(pdb_path):
         pdb_url = f"https://files.rcsb.org/download/{pdb_id}.pdb"
-        urllib.request.urlretrieve(pdb_url, pdb_path)
+        try:
+            urllib.request.urlretrieve(pdb_url, pdb_path)
+        except Exception as e:
+            raise RuntimeError(f"PDB 下载失败: {pdb_id}: {e}") from e
+        # 校验下载内容确实是 PDB 数据（404 页面会被 RCSB 返回 HTML）
+        try:
+            with open(pdb_path, "r", errors="replace") as f:
+                head = f.read(200).lstrip()
+        except Exception:
+            head = ""
+        if not head.startswith(("HEADER", "ATOM", "REMARK", "CRYST1", "MODEL", "TITLE")):
+            os.unlink(pdb_path)
+            raise ValueError(f"PDB ID {pdb_id} 无效或返回内容不是 PDB 数据")
     return pdb_path
 
 
@@ -238,7 +253,9 @@ def run_smina(
         "--num_modes", str(num_poses),
         "--exhaustiveness", str(exhaustiveness),
     ]
-    output_text = subprocess.check_output(cmd, universal_newlines=True)
+    output_text = subprocess.check_output(
+        cmd, universal_newlines=True, timeout=1800
+    )  # 30 分钟超时，避免 Smina 挂起卡死页面
     return output_text
 
 
@@ -287,6 +304,7 @@ def run_docking(
     ligand_resname: str = None,
     num_poses: int = 10,
     exhaustiveness: int = 8,
+    buffer: float = 5.0,
 ):
     """
     完整的分子对接流程：下载/读取蛋白 → 格式转换 → 口袋计算 → Smina 对接 → 结果解析
@@ -305,6 +323,8 @@ def run_docking(
         保留构象数，默认 10
     exhaustiveness : int
         搜索精度，默认 8
+    buffer : float
+        口袋缓冲距离 (Å)，默认 5.0
 
     Returns
     -------
@@ -322,6 +342,9 @@ def run_docking(
 
     import py3Dmol
 
+    # 跟踪需要清理的临时文件（mkstemp/NamedTemporaryFile 不会自动删除）
+    _temp_files = []
+
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp = Path(tmpdir)
 
@@ -329,7 +352,7 @@ def run_docking(
         if pdb_id:
             raw_pdb_path = _download_pdb(pdb_id)
             protein_pdb, pocket, detected_resname = _parse_pdb_for_docking(
-                raw_pdb_path, ligand_resname, buffer=5.0
+                raw_pdb_path, ligand_resname, buffer=buffer
             )
             if ligand_resname is None:
                 ligand_resname = detected_resname
@@ -337,54 +360,67 @@ def run_docking(
             with tempfile.NamedTemporaryFile(delete=False, suffix=".pdb") as tmpf:
                 tmpf.write(pdb_content)
                 raw_pdb_path = tmpf.name
+                _temp_files.append(raw_pdb_path)
             protein_pdb, pocket, detected_resname = _parse_pdb_for_docking(
-                raw_pdb_path, ligand_resname, buffer=5.0
+                raw_pdb_path, ligand_resname, buffer=buffer
             )
             if ligand_resname is None:
                 ligand_resname = detected_resname
         else:
             raise ValueError("请提供 PDB ID 或 PDB 文件内容")
 
-        # ----- 步骤 2: 蛋白转 PDBQT -----
-        protein_pdbqt = tmp / "protein.pdbqt"
-        pdb_to_pdbqt(str(protein_pdb), str(protein_pdbqt))
+        # _parse_pdb_for_docking 用 mkstemp 创建的蛋白 PDB 也需清理
+        _temp_files.append(protein_pdb)
 
-        # ----- 步骤 3: 配体转 PDBQT -----
-        if not ligand_smiles:
-            raise ValueError("请提供配体 SMILES 字符串")
-        ligand_pdbqt = tmp / "ligand.pdbqt"
-        smiles_to_pdbqt(ligand_smiles, str(ligand_pdbqt))
+        try:
+            # ----- 步骤 2: 蛋白转 PDBQT -----
+            protein_pdbqt = tmp / "protein.pdbqt"
+            pdb_to_pdbqt(str(protein_pdb), str(protein_pdbqt))
 
-        # ----- 步骤 4: 执行 Smina 对接 (口袋已在步骤 1 解析) -----
-        sdf_out = tmp / "docking_poses.sdf"
-        output_text = run_smina(
-            str(ligand_pdbqt),
-            str(protein_pdbqt),
-            str(sdf_out),
-            pocket["center"],
-            pocket["size"],
-            num_poses,
-            exhaustiveness,
-        )
+            # ----- 步骤 3: 配体转 PDBQT -----
+            if not ligand_smiles:
+                raise ValueError("请提供配体 SMILES 字符串")
+            ligand_pdbqt = tmp / "ligand.pdbqt"
+            smiles_to_pdbqt(ligand_smiles, str(ligand_pdbqt))
 
-        # ----- 步骤 5: 解析结果 -----
-        results = parse_smina_output(output_text)
+            # ----- 步骤 4: 执行 Smina 对接 (口袋已在步骤 1 解析) -----
+            sdf_out = tmp / "docking_poses.sdf"
+            output_text = run_smina(
+                str(ligand_pdbqt),
+                str(protein_pdbqt),
+                str(sdf_out),
+                pocket["center"],
+                pocket["size"],
+                num_poses,
+                exhaustiveness,
+            )
 
-        # ----- 步骤 6: py3Dmol 3D 可视化 -----
-        with open(sdf_out, "r") as f:
-            sdf_str = f.read()
-        view = py3Dmol.view(width=800, height=600)
-        view.addModel(sdf_str, 'sdf')
-        view.setStyle({'model': -1}, {'stick': {}})
-        view.zoomTo()
+            # ----- 步骤 5: 解析结果 -----
+            results = parse_smina_output(output_text)
 
-        # ----- 读取 SDF 用于下载 -----
-        with open(sdf_out, "rb") as f:
-            sdf_data = f.read()
+            # ----- 步骤 6: py3Dmol 3D 可视化 -----
+            with open(sdf_out, "r") as f:
+                sdf_str = f.read()
+            view = py3Dmol.view(width=800, height=600)
+            view.addModel(sdf_str, 'sdf')
+            view.setStyle({'model': -1}, {'stick': {}})
+            view.zoomTo()
 
-        return {
-            "results": results,
-            "view": view,
-            "sdf_data": sdf_data,
-            "output_text": output_text,
-        }
+            # ----- 读取 SDF 用于下载 -----
+            with open(sdf_out, "rb") as f:
+                sdf_data = f.read()
+
+            return {
+                "results": results,
+                "view": view,
+                "sdf_data": sdf_data,
+                "output_text": output_text,
+            }
+        finally:
+            # 清理系统 temp 目录下的临时 PDB（避免长时运行累积泄漏）
+            for _p in _temp_files:
+                try:
+                    if _p and os.path.exists(_p):
+                        os.unlink(_p)
+                except Exception:
+                    pass

@@ -5,6 +5,7 @@ KNIME 工作流导出工具 - 将平台数据导出为 KNIME 兼容格式
 """
 
 import os
+import re
 import json
 import io
 import zipfile
@@ -41,6 +42,7 @@ WORKFLOW_SUGGESTIONS = {
     "clustering": "W5 (化合物聚类)",
     "similarity": "W4 (化合物相似性搜索)",
     "mmgbsa": "W8 (蛋白-配体结合能分析)",
+    "md": "W8 (蛋白-配体结合能/稳定性分析)",
     "general": "W1-W8 (根据分析目标选择)",
 }
 
@@ -92,6 +94,8 @@ class KNIMEExporter:
 
     def to_workflow_zip(self, workflow_name: str = "药尘光_分析结果") -> bytes:
         """打包完整工作流为 ZIP"""
+        # 净化工作流名，防止路径分隔符/非法字符破坏 ZIP 条目
+        workflow_name = re.sub(r"[\\/:*?\"<>|\r\n]+", "_", str(workflow_name)).strip() or "药尘光_分析结果"
         buf = io.BytesIO()
         with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
             zf.writestr(f"{workflow_name}_data.csv", self.to_csv_bytes())
@@ -105,6 +109,8 @@ class KNIMEExporter:
         return buf.getvalue()
 
     def _build_metadata(self, name: str) -> Dict:
+        # columns 需与 CSV 实际表头一致（经 COLUMN_MAPPING 改写后）
+        mapped_columns = [COLUMN_MAPPING.get(c, c) for c in self.data.columns]
         return {
             "workflow_name": name,
             "description": f"药尘光 2.0 {self.module_type} 分析结果",
@@ -113,7 +119,7 @@ class KNIMEExporter:
             "module_type": self.module_type,
             "teachopencadd_knime_hub": "https://hub.knime.com/volkamerlab/space/TeachOpenCADD",
             "data_shape": list(self.data.shape),
-            "columns": list(self.data.columns),
+            "columns": mapped_columns,
             "recommended_workflow": WORKFLOW_SUGGESTIONS.get(
                 self.module_type, WORKFLOW_SUGGESTIONS["general"]),
             "user_metadata": self.metadata,

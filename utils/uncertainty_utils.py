@@ -51,9 +51,23 @@ def predict_with_uncertainty(model, features: np.ndarray):
     if features.ndim == 1:
         features = features.reshape(1, -1)
 
+    # 动态定位“活性”类别列（classes_ 顺序可能不同）；找不到时回退到最后一列
+    classes = getattr(model, "classes_", None)
+    active_idx = 1
+    if classes is not None:
+        try:
+            active_idx = classes.tolist().index(1)
+        except (ValueError, AttributeError):
+            active_idx = len(classes) - 1
+
     tree_probas = np.zeros((n_trees, n_samples))
     for i, tree in enumerate(model.estimators_):
-        tree_probas[i, :] = tree.predict_proba(features)[:, 1]
+        proba = tree.predict_proba(features)
+        # 单类别树（bootstrap 采样恰好只有一类）predict_proba 只有一列，跳过该树
+        if proba.shape[1] <= active_idx:
+            tree_probas[i, :] = 0.0
+            continue
+        tree_probas[i, :] = proba[:, active_idx]
 
     mean_proba = np.mean(tree_probas, axis=0)
     std_proba = np.std(tree_probas, axis=0)

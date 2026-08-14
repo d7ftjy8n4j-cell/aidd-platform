@@ -9,7 +9,6 @@
 参考: TeachOpenCADD T034 (RNN-based molecular property prediction)
 """
 
-import io
 import sys
 import pandas as pd
 import numpy as np
@@ -119,7 +118,6 @@ def page_molecular_generation():
                     status_text.empty()
                     st.success(f"训练完成！词表={stats['vocab_size']}, "
                                f"最终 loss={stats['final_loss']:.4f}")
-                    st.rerun()
 
                 except ImportError as e:
                     st.error(f"模块加载失败: {e}")
@@ -128,6 +126,9 @@ def page_molecular_generation():
                     import traceback
                     with st.expander("错误详情"):
                         st.code(traceback.format_exc())
+
+            # st.rerun 放在 try/except 之外：RerunException 可能被 except Exception 吞掉
+            st.rerun()
 
         st.divider()
 
@@ -151,8 +152,9 @@ def page_molecular_generation():
 
         if st.button("🔄 开始训练/微调", use_container_width=True, key="molgen_train_custom"):
             smiles = [s.strip() for s in custom_smiles_text.split("\n") if s.strip()]
-            if len(smiles) < 5:
-                st.error("请至少输入 5 个有效 SMILES")
+            # 与后端 train_many 要求一致：至少 10 个有效 SMILES
+            if len(smiles) < 10:
+                st.error("请至少输入 10 个有效 SMILES")
             else:
                 with st.spinner(f"{'微调' if custom_mode == '微调现有模型' else '训练'}中..."):
                     try:
@@ -170,10 +172,12 @@ def page_molecular_generation():
                         st.session_state["molgen_trained"] = True
                         st.session_state["molgen_stats"] = stats
                         st.success(f"完成！loss={stats.get('final_loss', stats.get('fine_tune_loss', 0)):.4f}")
-                        st.rerun()
 
                     except Exception as e:
                         st.error(f"失败: {e}")
+
+                # st.rerun 放在 try/except 之外
+                st.rerun()
 
         st.divider()
 
@@ -194,18 +198,26 @@ def page_molecular_generation():
                         tmp.write(uploaded_model.read())
                         model_path = tmp.name
 
-                    gen = MolecularGenerator()
-                    gen.load_model(model_path)
-                    os.unlink(model_path)
+                    try:
+                        gen = MolecularGenerator()
+                        gen.load_model(model_path)
+                    finally:
+                        # 无论加载成败都清理临时文件，避免失败上传残留
+                        try:
+                            os.unlink(model_path)
+                        except OSError:
+                            pass
 
                     st.session_state["molgen_generator"] = gen
                     st.session_state["molgen_trained"] = True
                     st.session_state["molgen_stats"] = gen.training_stats
                     st.session_state["molgen_default_trained"] = False
                     st.success(f"模型已加载 (vocab_size={gen.vocab_size})")
-                    st.rerun()
                 except Exception as e:
                     st.error(f"加载失败: {e}")
+
+            # st.rerun 放在 try/except 之外
+            st.rerun()
 
     # ---------- 主区域: 生成控制 ----------
 

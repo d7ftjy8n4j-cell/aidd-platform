@@ -5,7 +5,7 @@
 支持代表性分子筛选和降维可视化。
 """
 
-from typing import List, Tuple, Dict, Any, Optional
+from typing import List, Tuple, Optional
 from dataclasses import dataclass, field
 from rdkit import Chem, DataStructs
 from rdkit.ML.Cluster import Butina
@@ -285,17 +285,27 @@ class ClusterEngine:
             if not others:
                 continue
 
-            # 对非中心成员按与中心的相似度排序
-            centroid_fp = self._fingerprint_generator.GetFingerprint(
-                molecules[r.centroid_index]
-            )
-            others_sim: List[Tuple[float, int]] = []
-            for idx in others:
-                sim = DataStructs.TanimotoSimilarity(
-                    centroid_fp,
-                    self._fingerprint_generator.GetFingerprint(molecules[idx])
+            # 对非中心成员按与中心的相似度排序。
+            # intra_similarities 与 member_indices[1:] 一一对应（cluster() 已算过），直接复用避免重复计算指纹。
+            if len(r.intra_similarities) == len(r.member_indices) - 1:
+                others_sim: List[Tuple[float, int]] = list(zip(
+                    r.intra_similarities, r.member_indices[1:]
+                ))
+            else:
+                # 兜底：数据不一致时回退到重新计算
+                centroid_fp = self._fingerprint_generator.GetFingerprint(
+                    molecules[r.centroid_index]
                 )
-                others_sim.append((sim, idx))
+                others_sim = [
+                    (
+                        DataStructs.TanimotoSimilarity(
+                            centroid_fp,
+                            self._fingerprint_generator.GetFingerprint(molecules[idx])
+                        ),
+                        idx,
+                    )
+                    for idx in others
+                ]
 
             # 相似度从高到低
             others_sim.sort(reverse=True, key=lambda x: x[0])

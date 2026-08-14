@@ -282,6 +282,15 @@ class DataFetcher:
             comp_list = list(compounds)
             comp_df = pd.DataFrame.from_records(comp_list)
 
+            # 空结果防护：避免空 DataFrame 访问列时抛误导性 KeyError
+            if comp_df.empty:
+                return FetchResult(
+                    success=False,
+                    query=target_name,
+                    source="ChEMBL",
+                    error="未能获取分子结构数据",
+                )
+
             # 提取规范 SMILES
             comp_df["smiles"] = comp_df["molecule_structures"].apply(
                 lambda x: x.get("canonical_smiles") if isinstance(x, dict) else None
@@ -367,8 +376,8 @@ class DataFetcher:
         """
         start_time = time.time()
         try:
-            # 1. 创建异步任务
-            escaped = quote(smiles)
+            # 1. 创建异步任务（safe="" 编码所有保留字符，SMILES 中的 / 不会被拆成路径段）
+            escaped = quote(smiles, safe="")
             url = (
                 f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/"
                 f"similarity/smiles/{escaped}/JSON"

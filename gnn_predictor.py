@@ -5,7 +5,7 @@ gnn_predictor.py - GNN预测器 (适配您训练好的EGFR GCN模型)
 
 模型定义与训练脚本完全一致：
   - 层命名: conv1/conv2/conv3, bn1/bn2 (非 ModuleList)
-  - 原子特征数: 14 (非12)
+  - 原子特征数: 13 (匹配 gcn_egfr_best_model.pth 的 conv1.lin.weight[128,13])
   - 前向传播: ReLU(BN(Conv)) + Dropout 逐层展开
 """
 
@@ -36,7 +36,7 @@ class GCNModel(torch.nn.Module):
     以匹配保存的 state_dict 键名。
     """
 
-    def __init__(self, num_node_features=14, hidden_dim=128):
+    def __init__(self, num_node_features=13, hidden_dim=128):
         super().__init__()
         self.conv1 = GCNConv(num_node_features, hidden_dim)
         self.conv2 = GCNConv(hidden_dim, hidden_dim)
@@ -118,7 +118,11 @@ class GCNPredictor:
         if os.path.exists(model_path):
             self._load_weights()
         else:
-            logger.warning(f"⚠️ 模型文件未找到: {model_path}，使用随机初始化权重")
+            # 模型缺失时直接失败，禁止用随机权重输出伪造预测（教学平台会误导学生）
+            raise FileNotFoundError(
+                f"GCN 模型文件未找到: {model_path}，无法提供预测。"
+                f"请检查 gcn_egfr_best_model.pth 是否存在于项目目录。"
+            )
 
         self.model.eval()
         logger.info(f"✅ GCN预测器初始化完成，设备: {self.device}")

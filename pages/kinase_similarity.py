@@ -3,7 +3,6 @@
 """
 import streamlit as st
 import pandas as pd
-import numpy as np
 from interaction_utils import fetch_klifs_ifps, compute_ifp_distance_matrix, plot_ifp_heatmap
 
 
@@ -76,18 +75,31 @@ def page_kinase_similarity():
             try:
                 # 1. 获取 IFP 数据
                 ifp_df = fetch_klifs_ifps(selected)
+            except Exception as e:
+                st.error(f"分析失败: {e}")
+                st.info("""
+                **可能原因**：
+                - KLIFS 远程数据库暂时不可用
+                - 选中的激酶在 KLIFS 中没有满足过滤条件的结构
+                - 网络连接问题
 
-                if ifp_df.empty:
-                    st.error("未获取到任何结构数据。可能原因：激酶名称不匹配、无高质量结构、或网络无法访问 KLIFS。")
-                    st.info("""
-                    **排查建议**：
-                    - 检查激酶名称是否与 KLIFS 数据库一致
-                    - 尝试减少激酶数量、换用经典激酶（如 EGFR, ABL1）
-                    - 确认网络可以访问 https://klifs.net
-                    """)
-                    st.stop()
+                建议：稍后重试，或减少激酶数量、换用经典激酶组合。
+                """)
+                st.stop()
 
-                # 2. 数据覆盖情况
+            # 2. 空数据检查（放在 try 外：st.stop 抛 StopException，若在 except Exception 内会被吞掉）
+            if ifp_df.empty:
+                st.error("未获取到任何结构数据。可能原因：激酶名称不匹配、无高质量结构、或网络无法访问 KLIFS。")
+                st.info("""
+                **排查建议**：
+                - 检查激酶名称是否与 KLIFS 数据库一致
+                - 尝试减少激酶数量、换用经典激酶（如 EGFR, ABL1）
+                - 确认网络可以访问 https://klifs.net
+                """)
+                st.stop()
+
+            try:
+                # 3. 数据覆盖情况
                 st.subheader("📊 各激酶可用高质量结构数量")
                 if "kinase.klifs_name" in ifp_df.columns:
                     coverage = ifp_df.groupby("kinase.klifs_name").size().sort_values(ascending=True)

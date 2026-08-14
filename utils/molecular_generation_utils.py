@@ -109,7 +109,12 @@ DEFAULT_SMILES.extend(_extra_pyrimidine + _extra_purin + _extra_quinazoline)
 
 # ---------- 字符级 LSTM 模型 ----------
 
-class CharRNN(nn.Module):
+# torch 不可用时 nn 为 None，class CharRNN(nn.Module) 会抛 AttributeError。
+# 用占位基类保证模块在 torch-less 环境可导入（页面据此显示“PyTorch 未安装”）。
+_ModuleBase = nn.Module if TORCH_AVAILABLE else object
+
+
+class CharRNN(_ModuleBase):
     """
     字符级 LSTM 分子生成器 (REINVENT 架构简化版)
 
@@ -321,7 +326,7 @@ class MolecularGenerator:
         optimizer = optim.Adam(self.model.parameters(), lr=learning_rate)
         criterion = nn.CrossEntropyLoss(ignore_index=0)  # 忽略填充 token
 
-        n_batches = max(1, len(tensors) // batch_size)
+        n_batches = max(1, (len(tensors) + batch_size - 1) // batch_size)  # 向上取整，与实际循环批次数一致
         losses = []
 
         for epoch in range(1, epochs + 1):
@@ -417,7 +422,7 @@ class MolecularGenerator:
         criterion = nn.CrossEntropyLoss(ignore_index=0)
 
         batch_size = min(16, len(tensors))
-        n_batches = max(1, len(tensors) // batch_size)
+        n_batches = max(1, (len(tensors) + batch_size - 1) // batch_size)  # 向上取整，与实际循环批次数一致
         losses = []
 
         for epoch in range(1, epochs + 1):
@@ -464,8 +469,8 @@ class MolecularGenerator:
             old_embed = self.model.embedding
             old_fc = self.model.fc
 
-            new_embed = nn.Embedding(self.vocab_size, self.model.embed_size, padding_idx=0)
-            new_fc = nn.Linear(self.model.hidden_size, self.vocab_size)
+            new_embed = nn.Embedding(self.vocab_size, self.model.embed_size, padding_idx=0).to(self.device)
+            new_fc = nn.Linear(self.model.hidden_size, self.vocab_size).to(self.device)
 
             # 复制旧权重
             with torch.no_grad():
@@ -520,9 +525,12 @@ class MolecularGenerator:
                 if seed:
                     seed_indices = [self.char_to_idx.get(c, space_idx) for c in seed]
                     input_tensor = torch.tensor([seed_indices], dtype=torch.long).to(self.device)
-                    # 先传递整个 seed 序列获得 hidden state
-                    _, hidden = self.model(input_tensor)
-                    # 最后一步作为下一步输入
+                    # 初始前向只传 seed[:-1]，避免最后一个字符被重复处理两次；
+                    # 单字符 seed 时直接置 hidden=None（模型内部会初始化）
+                    if len(seed_indices) > 1:
+                        _, hidden = self.model(input_tensor[:, :-1])
+                    else:
+                        hidden = None
                     input_tensor = input_tensor[:, -1:]
                     output_chars = list(seed)
                 else:
@@ -536,8 +544,8 @@ class MolecularGenerator:
                     raw_logits = logits[0, -1]  # (vocab_size,)
 
                     if temperature < 1e-6:
-                        # 贪心解码: 直接取 argmax, 不对 logits 做缩放
-                        next_idx = torch.argmax(raw_logits).item()
+                        # 贪心解码: 屏蔽填充/空格 token（index 0）后取 argmax，与采样分支一致
+                        next_idx = torch.argmax(raw_logits[1:]).item() + 1
                     else:
                         scaled = raw_logits / temperature
                         probs = torch.softmax(scaled, dim=-1)
@@ -597,7 +605,9 @@ class MolecularGenerator:
 
     def load_model(self, path: str):
         """加载模型权重 + 词表"""
-        checkpoint = torch.load(path, map_location=self.device, weights_only=False)
+        # weights_only=True：checkpoint 仅含 state_dict/vocab/int/基本 dict，
+        # 避免恶意 .pt 文件 pickle 反序列化执行任意代码 (RCE)
+        checkpoint = torch.load(path, map_location=self.device, weights_only=True)
         self.vocab = checkpoint["vocab"]
         self.char_to_idx = {c: i for i, c in enumerate(self.vocab)}
         self.idx_to_char = {i: c for i, c in enumerate(self.vocab)}

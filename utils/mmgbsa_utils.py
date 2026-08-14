@@ -139,8 +139,9 @@ def _build_cached_gb_system(openmm_topology, initial_positions, temperature=300.
             break
 
     # ---- 4. 获取原子元素信息（用于 GB 半径映射）----
+    # 用户上传 PDB 可能缺少元素列，此时 atom.element 为 None，默认按碳处理
     element_numbers = [
-        atom.element.atomic_number for atom in openmm_topology.atoms()
+        getattr(atom.element, "atomic_number", 6) for atom in openmm_topology.atoms()
     ]
 
     # 安全检查：粒子数与元素数一致
@@ -268,6 +269,10 @@ def run_mmgbsa(
 
     logger.info(f"  共 {traj.n_frames} 帧，{traj.n_atoms} 个原子")
 
+    # 空轨迹防护：避免后续 traj.xyz[0] 抛 IndexError
+    if traj.n_frames == 0:
+        raise ValueError("轨迹文件为空，未包含任何帧，无法计算 MM-GBSA")
+
     # ---- 2. 识别蛋白 & 配体原子索引 ----
     # 避免 MDTraj select() 的 ast.parse bug
     protein_indices = np.array([a.index for a in traj.topology.atoms if a.residue.is_protein], dtype=np.int64)
@@ -302,9 +307,15 @@ def run_mmgbsa(
     # ================================================================
     logger.info("  [1/3] 构建复合物 GB 系统...")
 
-    # Complex：全原子
-    omm_top_complex = traj.topology.to_openmm()
-    first_pos = traj.xyz[0] * unit.nanometer
+    # Complex：仅蛋白+配体原子（剔除水/离子），保证与 receptor/ligand 子系统原子集一致，
+    # 满足单轨迹协议的抵消要求（显式溶剂 MD 轨迹含水和离子，若不剔除会系统性偏差 ΔG_bind）
+    complex_indices = np.array(
+        sorted(set(protein_indices.tolist()) | set(ligand_indices.tolist())),
+        dtype=np.int64,
+    )
+    sub_traj_complex = traj.atom_slice(complex_indices)
+    omm_top_complex = sub_traj_complex.topology.to_openmm()
+    first_pos = traj.xyz[0][complex_indices] * unit.nanometer
     sim_complex = _build_cached_gb_system(omm_top_complex, first_pos, temperature)
 
     logger.info(f"  [2/3] 构建受体 GB 系统 ({len(protein_indices)} 原子)...")
@@ -337,7 +348,7 @@ def run_mmgbsa(
 
     for step, fi in enumerate(frame_indices):
         # --- Complex ---
-        pos_full = traj.xyz[fi] * unit.nanometer
+        pos_full = traj.xyz[fi][complex_indices] * unit.nanometer
         g_c = _get_frame_energy(sim_complex, pos_full)
 
         # --- Receptor ---
@@ -368,6 +379,8 @@ def run_mmgbsa(
                 break
 
     # ---- 统计分析 ----
+    if not delta_g_list:
+        raise ValueError("未计算任何帧（可能被用户取消），无法统计 ΔG")
     delta_g_arr = np.array(delta_g_list)
     delta_g_mean = float(np.mean(delta_g_arr))
     delta_g_std = float(np.std(delta_g_arr))

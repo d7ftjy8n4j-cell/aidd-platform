@@ -160,6 +160,7 @@ def page_molecular_docking():
                     ligand_resname=ligand_resname.strip() if ligand_resname.strip() else None,
                     num_poses=num_poses,
                     exhaustiveness=exhaustiveness,
+                    buffer=buffer_size,
                 )
 
                 # ---------- 显示结果 ----------
@@ -251,7 +252,9 @@ def page_molecular_docking():
                     }, indent=2, ensure_ascii=False))
 
                 # 缓存结果以便清空后查看
-                st.session_state["docking_last_result"] = result
+                cached_result = dict(result)
+                cached_result["smiles"] = ligand_smiles.strip()
+                st.session_state["docking_last_result"] = cached_result
 
             except FileNotFoundError:
                 st.error("❌ 未找到 Smina 命令，请确保 Smina 已安装并位于 PATH 中")
@@ -303,12 +306,12 @@ def page_molecular_docking():
 
             # KNIME 导出
             if cached.get("results"):
-                scores = [r[1] for r in cached["results"] if len(r) > 1]
+                scores = [r.get("affinity") for r in cached["results"] if isinstance(r, dict) and r.get("affinity") is not None]
                 if scores and cached.get("smiles"):
                     import pandas as _pd
                     _df = _pd.DataFrame([{
                         "smiles": cached["smiles"],
-                        "docking_score": scores[0],
+                        "docking_score": float(scores[0]),
                     }])
                     knime_export_section(
                         _df,
@@ -346,7 +349,7 @@ def page_molecular_docking():
         | **目的** | 分析已有复合物的已存在相互作用 | 预测配体的结合构象与亲和力 |
         | **工具** | PLIP | Smina (AutoDock Vina) |
         | **输入** | 已有 PDB 复合物 | 蛋白 + 任意 SMILES 配体 |
-        | **流程** | 对接 → PLIP 分析相互作用 |
+        | **流程** | 已有复合物 → PLIP 分析相互作用 | 蛋白 + SMILES → Smina 对接 → 结合能排序 |
         """)
 
 

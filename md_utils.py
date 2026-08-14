@@ -51,10 +51,12 @@ def _check_md_deps():
         "pdbfixer": ["pdbfixer", "PDBFixer"],
         "openmm": ["openmm", "app"],
         "openmm.unit": ["openmm", "unit"],
-        "openmmforcefields": ["openmmforcefields.generators", "GAFFTemplateGenerator"],
+        # SMIRNOFF 配体参数化路径实际使用 openff.toolkit / openff.interchange
+        "openff.toolkit": ["openff.toolkit", "ForceField"],
     }
     deps_optional = {
         "mdtraj": ["mdtraj", "reporters"],
+        "openff.interchange": ["openff.interchange", "Interchange"],
     }
 
     all_ok = True
@@ -439,9 +441,12 @@ def run_md_simulation(
     pdb_content : bytes
         上传的 PDB 文件内容
     ligand_resname : str
-        配体残基三字母名（默认 03P = TAK-285）
+        配体残基三字母名（默认 03P = TAK-285）。
+        ⚠️ 当前实现为 apo（脱辅基）蛋白模拟：PDBFixer 的 removeHeterogens
+        会移除配体，本参数仅用于下游轨迹分析时的配体原子查找。
     ligand_smiles : str
-        配体的正确 SMILES（用于键级修正），默认使用 3POZ 配体 03P
+        配体的正确 SMILES（用于键级修正）。
+        ⚠️ 当前实现不使用该参数（配体不参与建系），仅为接口预留。
     total_steps : int
         模拟总步数（每步 2 fs）
     write_interval : int
@@ -471,6 +476,13 @@ def run_md_simulation(
     import openmm as mm
     import openmm.app as app
     from openmm import unit
+
+    # 明确告知当前为 apo 模拟（配体参数仅用于分析，不参与建系）
+    if ligand_smiles:
+        logger.warning(
+            "run_md_simulation 当前为 apo 蛋白模拟：配体 SMILES 不参与建系，"
+            "ligand_resname 仅用于轨迹分析中的配体原子查找。"
+        )
     try:
         import mdtraj as md
         _MDTRAJ_OK = True
@@ -716,12 +728,18 @@ def analyze_trajectory(topology_pdb: str, trajectory_xtc: str, ligand_resname: s
 
     traj = md.load(trajectory_xtc, top=topology_pdb)
     n_frames = traj.n_frames
+    # ---- 获取时间轴（mdtraj timestep 单位为 ps，直接使用；并转为纯数值便于 JSON 序列化） ----
+    try:
+        timestep_ps = float(traj.timestep.value_in_unit(md.unit.picoseconds))
+    except Exception:
+        timestep_ps = 0.002  # 默认 2 fs/步
+
     if n_frames < 2:
         return {
             "rmsd_protein": np.zeros(n_frames),
             "rmsd_ligand": np.zeros(n_frames),
             "rmsf": np.array([]),
-            "time_ps": np.arange(n_frames) * (traj.timestep * 1000),
+            "time_ps": np.arange(n_frames) * timestep_ps,
             "residue_ids": np.array([]),
             "n_frames": n_frames,
             "representative_frame": 0,
@@ -757,8 +775,11 @@ def analyze_trajectory(topology_pdb: str, trajectory_xtc: str, ligand_resname: s
     if len(ligand_atoms) > 0:
         rmsd_ligand = md.rmsd(traj_aligned, traj_aligned, frame=0,
                               atom_indices=ligand_atoms) * 10
+        ligand_found = True
     else:
+        # 体系中无配体（apo 模拟），不伪造配体 RMSD
         rmsd_ligand = np.zeros(n_frames)
+        ligand_found = False
 
     # ---- 5. 蛋白残基 RMSF ----
     if len(protein_atoms) > 0:
@@ -786,12 +807,13 @@ def analyze_trajectory(topology_pdb: str, trajectory_xtc: str, ligand_resname: s
     else:
         representative_frame = n_frames // 2  # 中位数帧
 
-    # ---- 7. 时间轴 ----
-    time_ps = np.arange(n_frames) * (traj.timestep * 1000)  # ps
+    # ---- 7. 时间轴（单位 ps，纯数值） ----
+    time_ps = np.arange(n_frames) * timestep_ps
 
     return {
         "rmsd_protein": rmsd_protein,
         "rmsd_ligand": rmsd_ligand,
+        "ligand_found": ligand_found,
         "rmsf": rmsf,
         "time_ps": time_ps,
         "residue_ids": residue_ids,
