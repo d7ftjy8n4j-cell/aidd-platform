@@ -7,7 +7,7 @@
 [![Python](https://img.shields.io/badge/Python-3.10+-blue?logo=python)]()
 [![License](https://img.shields.io/badge/License-MIT-green)]()
 
-🔗 **在线体验**：[https://ai-egfr-platform.streamlit.app/](https://ai-egfr-platform.streamlit.app/)
+🔗 **在线体验**：[https://csn666.streamlit.app/](https://csn666.streamlit.app/)
 
 ---
 
