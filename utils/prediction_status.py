@@ -33,13 +33,13 @@ def render_prediction_status_bar(get_predictors_available):
 
         col1, col2 = st.columns(2)
         with col1:
-            if st.button("🔄 重置统计", use_container_width=True, key="reset_stat_bar"):
+            if st.button("🔄 重置统计", width="stretch", key="reset_stat_bar"):
                 st.session_state.prediction_count = 0
                 st.rerun()
 
         with col2:
             has_data = bool(st.session_state.get("last_smiles"))
-            if st.button("📥 导出结果", use_container_width=True, key="export_stat_bar",
+            if st.button("📥 导出结果", width="stretch", key="export_stat_bar",
                          disabled=not has_data):
                 _show_export_dialog()
 
@@ -60,7 +60,7 @@ def _show_export_dialog():
 
         if export_data:
             df = _build_export_dataframe(export_data)
-            st.dataframe(df, use_container_width=True, hide_index=True)
+            st.dataframe(df, width="stretch", hide_index=True)
             csv = df.to_csv(index=False, encoding='utf-8-sig')
             filename = f"egfr_prediction_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
             st.download_button(

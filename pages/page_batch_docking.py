@@ -47,7 +47,7 @@ def page_batch_docking():
     - **输出**：排序对比表 + 结合能分布图 + 统计摘要 + 结果导出
 
     ---
-    **典型应用**：EGFR 激酶 (PDB: 2ITO) × 候选配体库 → 按对接打分排名
+    **典型应用**：激酶靶点（示例：EGFR，PDB 2ITO）× 候选配体库 → 按对接打分排名
     """)
 
     # ---------- 侧边栏：输入设置 ----------
@@ -210,7 +210,7 @@ def page_batch_docking():
     st.caption(f"当前加载 **{len(smiles_list)}** 个配体待对接")
 
     # ---------- 执行批量对接 ----------
-    if st.button("🚀 开始批量对接", type="primary", key="batch_run_btn", use_container_width=True):
+    if st.button("🚀 开始批量对接", type="primary", key="batch_run_btn", width="stretch"):
         if not smiles_list:
             st.error("请至少输入一个配体 SMILES")
             st.stop()
@@ -359,7 +359,7 @@ def _render_batch_results(result, compact=False):
         display_df.columns = [
             "配体名称", "SMILES", "最佳结合能 (kcal/mol)", "构象数"
         ][:len(display_df.columns)]
-        st.dataframe(display_df, use_container_width=True, hide_index=True)
+        st.dataframe(display_df, width="stretch", hide_index=True)
         return
 
     # ---- 统计卡片 ----
@@ -424,9 +424,9 @@ def _render_batch_results(result, compact=False):
                 return ""
 
         styled = display_df.style.map(_color_score, subset=["最佳结合能 (kcal/mol)"])
-        st.dataframe(styled, use_container_width=True, height=400)
+        st.dataframe(styled, width="stretch", height=400)
     else:
-        st.dataframe(display_df, use_container_width=True)
+        st.dataframe(display_df, width="stretch")
 
     # ---- 结合能分布图 ----
     st.subheader("📈 结合能分布")
@@ -434,7 +434,7 @@ def _render_batch_results(result, compact=False):
     if len(success_df) > 0:
         chart_df = success_df.set_index("name")[["best_score"]].copy()
         chart_df.columns = ["结合能 (kcal/mol)"]
-        st.bar_chart(chart_df, use_container_width=True)
+        st.bar_chart(chart_df, width="stretch")
     else:
         st.warning("无成功对接结果")
 

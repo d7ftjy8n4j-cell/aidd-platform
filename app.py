@@ -1,5 +1,5 @@
 """
-app.py - EGFR抑制剂智能预测系统（双引擎版）
+app.py - 靶点导向的 AI 药物发现教学平台（双引擎版）
 集成：真实随机森林模型 + 真实GNN模型
 版本：2.0.0 (Navigation重构版)
 """
@@ -43,7 +43,7 @@ os.environ.setdefault("OMP_DUPLICATE_LIB_OK", "TRUE")
 # ========== 设置页面（必须在任何Streamlit命令之前） ==========
 import streamlit as st
 st.set_page_config(
-    page_title="药尘光 · EGFR抑制剂智能发现与设计平台",
+    page_title="药尘光 · AI 药物发现教学设计平台",
     page_icon="🧬",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -114,6 +114,17 @@ except ImportError as e:
     logging.error(f"分子聚类页面导入失败: {e}")
     def show_clustering_page():
         st.error("分子聚类页面加载失败，请检查 pages/page_clustering.py 文件")
+
+# ========== 导入教学实验室页面 ==========
+try:
+    from pages.page_teach_lab import page_teach_lab
+    TEACH_LAB_PAGE_AVAILABLE = True
+    logging.info("教学实验室页面加载成功")
+except ImportError as e:
+    TEACH_LAB_PAGE_AVAILABLE = False
+    logging.error(f"教学实验室页面导入失败: {e}")
+    def page_teach_lab():
+        st.error("教学实验室页面加载失败，请检查 pages/page_teach_lab.py 与 utils/teach_lab.py 文件")
 
 # ========== 导入蛋白-配体相互作用页面 ==========
 try:
@@ -602,7 +613,7 @@ def compare_results(rf_result, gnn_result):
             "AUC": st.column_config.TextColumn(alignment="center"),
             "原理": st.column_config.TextColumn(alignment="left"),
         }
-        st.dataframe(df_compare, column_config=column_config, use_container_width=True, hide_index=True)
+        st.dataframe(df_compare, column_config=column_config, width="stretch", hide_index=True)
         if len(comparison_data) == 2:
             rf_pred = comparison_data[0]['预测']
             gnn_pred = comparison_data[1]['预测']
@@ -764,7 +775,8 @@ def page_molecular_prediction():
         render_prediction_status_bar(
             lambda: {'rf': 'rf' in predictors, 'gnn': 'gnn' in predictors}
         )
-    st.caption("输入 SMILES，选择预测模式，快速评估分子对 EGFR 的抑制活性。双模型对比可提高结果可靠性。")
+    st.caption("输入 SMILES，选择预测模式，快速评估分子的靶点活性。平台内置双模型基于 EGFR（CHEMBL203）活性数据训练，"
+               "其他靶点可在 🎓 教学实验室 现场训练小模型。双模型对比可提高结果可靠性。")
 
     with st.popover("🎓 教学点"):
         st.markdown("对比随机森林（基于特征工程）与图神经网络（基于分子图结构）的预测结果，"
@@ -943,7 +955,7 @@ def page_drug_screening():
                 ro5_res = adme_tool.calculate_ro5_properties(current_smiles)
                 if ro5_res['MW'] is not None:
                     res_df = pd.DataFrame(ro5_res).T
-                    st.dataframe(res_df.style.format("{:.2f}", subset=["MW", "LogP"]), use_container_width=True)
+                    st.dataframe(res_df.style.format("{:.2f}", subset=["MW", "LogP"]), width="stretch")
                     if ro5_res['Pass_Ro5']:
                         st.success("✅ **通过 Ro5 筛选** (违反规则数 <= 1)")
                     else:
@@ -1068,7 +1080,7 @@ def page_3d_structure():
 
     with st.popover("🎓 教学点"):
         st.markdown("观察蛋白质-配体复合物的三维结构，理解相互作用（氢键、疏水作用）如何影响结合亲和力。"
-                    "可加载EGFR相关PDB结构（如3POZ、1M17）。")
+                    "可加载任意 PDB 结构（常用示例：EGFR 体系 3POZ、1M17）。")
 
     if not VIZ_AVAILABLE:
         st.error("⚠️ 可视化模块加载失败")
@@ -1091,7 +1103,7 @@ def page_3d_structure():
 
         if input_mode == "PDB ID":
             pdb_input = st.text_input("输入 ID", value=st.session_state.viz_pdb_id).upper()
-            if st.button("📥 加载 PDB", use_container_width=True):
+            if st.button("📥 加载 PDB", width="stretch"):
                 with st.spinner("下载中..."):
                     if viz_tool.load_from_pdb_id(pdb_input):
                         st.session_state.viz_pdb_id = pdb_input
@@ -1136,7 +1148,7 @@ def page_3d_structure():
         do_update = False
 
         if pause_refresh:
-            if st.button("🔄 手动刷新视图", type="primary", use_container_width=True):
+            if st.button("🔄 手动刷新视图", type="primary", width="stretch"):
                 do_update = True
             else:
                 st.caption("⚠️ 视图已锁定，修改样式后请点击上方按钮更新。")
@@ -1175,7 +1187,7 @@ def page_3d_structure():
         else:
             st.info("👈 请在左侧加载蛋白质结构")
             st.markdown("""
-            **推荐的 EGFR 相关结构:**
+            **推荐示例结构（EGFR 体系，含配体）:**
             * `3POZ`: EGFR 激酶结构域 + 抑制剂 Tak-285
             * `1M17`: EGFR + 埃罗替尼 (Erlotinib)
             * `2ITY`: EGFR + 吉非替尼 (Gefitinib)
@@ -1242,7 +1254,8 @@ def page_model_and_system():
             "可解释性": ["⭐⭐⭐ 高", "⭐⭐ 中"],
         }
         st.table(pd.DataFrame(perf_data))
-        st.caption("训练数据：ChEMBL EGFR 靶点（CHEMBL203），IC50 筛选去重后 13,286 个唯一化合物（50.8% 活性）。")
+        st.caption("内置双模型的训练数据：ChEMBL EGFR 靶点（CHEMBL203），IC50 筛选去重后 13,286 个唯一化合物（50.8% 活性）。"
+                   "想换成别的靶点？请在 🎓 教学实验室 现场下载并训练。")
 
     # ==================== Tab 2: 系统架构 ====================
     with tab2:
@@ -1293,7 +1306,8 @@ def page_model_and_system():
         ### 🎯 项目简介
 
         **药尘光** 是一款面向 **AIDD（AI 辅助药物设计）教学** 的交互式 Web 平台，
-        以 EGFR 激酶抑制剂为切入点，致力于将前沿 AI 技术转化为本科生触手可及的交互式学习工具。
+        以激酶等经典成药靶点（示例：EGFR）为切入点，支持任意靶点的数据检索、建模与设计流程演练，
+        致力于将前沿 AI 技术转化为本科生触手可及的交互式学习工具。
 
         > *"双核驱动，理形相生"*  
         > —— 随机森林捕捉「经验之理」，图神经网络感知「结构之形」，双引擎相互验证，让 AI 决策透明可解释。
@@ -1325,7 +1339,7 @@ def render_sidebar():
     with st.sidebar:
         # 添加 Logo（Streamlit 1.54+）
         try:
-            st.logo("🧬 药尘光 · EGFR智能发现与设计平台", icon="🧬")
+            st.logo("🧬 药尘光 · AI 药物发现教学平台", icon="🧬")
         except Exception:
             pass  # 旧版本不支持，优雅降级
 
@@ -1337,7 +1351,7 @@ def render_sidebar():
         # 教学指南（折叠）
         with st.expander("📘 教学指南（新手必读）", expanded=False):
             st.markdown("""
-            **药尘光 · AIDD 学习路径** (12 步)  
+            **药尘光 · AIDD 学习路径** (13 步)  
             1. **📦 数据获取**：从 ChEMBL / PubChem 获取化合物数据  
             2. **🧪 分子预测**：输入 SMILES，体验双引擎对比 + SHAP 解释  
             3. **🧪 分子评估**：成药性筛选 + 理化性质 + 毒性警报（一站式）  
@@ -1347,9 +1361,10 @@ def render_sidebar():
             7. **🔗 分子对接**：单分子精确对接 + 批量虚拟筛选  
             8. **⚛️ 分子动力学**：全原子 MD 模拟 + MM-GBSA 结合自由能  
             9. **🧬 激酶相似性**：KLIFS 激酶组选择性分析  
-            10. **🧬 分子生成**：LSTM 自回归生成新 EGFR 抑制剂候选分子  
+            10. **🧬 分子生成**：LSTM 自回归生成新颖候选分子（内置数据集为 EGFR 抑制剂）  
             11. **⚙️ 自动化流程**：预测→筛选→药效团→相似性一键串联  
-            12. **📊 模型与系统**：性能指标 + 双引擎架构 + 项目背景全览  
+            12. **🎓 教学实验室**：ChEMBL 下载 → 清洗（看清流失）→ 现场训练 RF/GNN → 预测新分子  
+            13. **📊 模型与系统**：性能指标 + 双引擎架构 + 项目背景全览  
             ---
             每个标签页和子标签均有 **🎓 教学弹窗**，点击即可学习相关理论。
             """)
@@ -1357,7 +1372,7 @@ def render_sidebar():
         # 功能导航指南（折叠）
         with st.expander("📖 功能导航指南", expanded=False):
             st.markdown("""
-            **13 个顶层标签页**（部分内含子标签）：  
+            **14 个顶层标签页**（部分内含子标签）：  
             - **📦 数据获取**：ChEMBL/PubChem 检索 + CSV 上传，一键送入后续分析  
             - **🧪 分子预测**：RF + GNN 双引擎 + SHAP 瀑布图 + 不确定性估计  
             - **🧪 分子评估** [`🛡️药物筛选` `🔍化学依据`]：成药性 + 毒性 + 描述符 + 相似性  
@@ -1367,15 +1382,16 @@ def render_sidebar():
             - **🔗 分子对接** [`🔗单分子` `🧩批量`]：Smina 对接 + 虚拟筛选排序  
             - **⚛️ 分子动力学** [`⚛️MD模拟` `⚛️MM-GBSA`]：OpenMM 轨迹 + 结合自由能  
             - **🧬 激酶相似性**：KLIFS-IFP 激酶组结合模式比较  
-            - **🧬 分子生成**：LSTM 自回归生成新颖 EGFR 抑制剂  
+            - **🧬 分子生成**：LSTM 自回归生成新颖候选分子（内置数据集为 EGFR 抑制剂）  
             - **⚙️ 自动化流程**：预测→筛选→药效团→相似性一键串联  
+            - **🎓 教学实验室**：下载 → 清洗 → 现场训练 → 预测，四步闭环可复现  
             - **📊 模型与系统**：模型性能 + 架构图 + 技术栈 + 项目背景（四合一）  
             """)
 
         # 系统信息（折叠）
         with st.expander("ℹ️ 系统信息", expanded=False):
             st.write(f"Python: {sys.version.split()[0]}")
-            st.write("Streamlit: 1.28.0")
+            st.write(f"Streamlit: {st.__version__}")
             st.write(f"主题: {'🌙 暗色' if st.session_state.theme == 'dark' else '☀️ 亮色'}")
             st.write(f"工作目录: {os.getcwd()}")
 
@@ -1416,18 +1432,20 @@ def page_home():
     </style>
     """, unsafe_allow_html=True)
 
-    st.title("🧬 EGFR抑制剂智能发现与设计平台")
+    st.title("🧬 药尘光 · AI 药物发现教学设计平台")
 
     with st.popover("🎓 新手指南"):
         st.markdown("""
         **欢迎来到药尘光！** 👋
 
-        这是一个面向 **AIDD（AI 辅助药物设计）教学** 的交互式平台，以 EGFR 激酶抑制剂为切入点。
+        这是一个面向 **AIDD（AI 辅助药物设计）教学** 的交互式平台，以激酶等经典成药靶点（示例：EGFR）为切入点，
+        支持任意靶点的数据检索、建模与预测流程演练。
 
         **3 分钟快速上手**：
         1. 在 **🧪 分子预测** 输入吉非替尼 SMILES，体验 AI 预测
         2. 在 **🧪 分子评估** 查看其成药性 (Lipinski) 和毒性风险
         3. 在 **🔬 结构分析** 加载 2ITY 观察蛋白-配体 3D 结合模式
+        4. 在 **🎓 教学实验室** 亲手走一遍「下载 → 清洗 → 现场训练 → 预测」四步闭环
 
         **推荐学习路径**：左侧导航栏 → 📦 数据获取 → ... → 📊 模型与系统
 
@@ -1516,7 +1534,7 @@ def page_structure_analysis():
         - π-π 堆积在激酶抑制剂的 hinge 区域尤为关键
         - 疏水接触贡献了结合自由能的主要部分（熵驱动）
 
-        推荐 EGFR 结构：3POZ (TAK-285)、2ITY (吉非替尼)、1M17 (埃罗替尼)
+        推荐示例结构（EGFR 体系）：3POZ (TAK-285)、2ITY (吉非替尼)、1M17 (埃罗替尼)
         """)
     tab1, tab2 = st.tabs(["🔗 3D 可视化", "💊 相互作用分析"])
     with tab1:
@@ -1592,6 +1610,7 @@ def main():
         st.Page(page_kinase_similarity, title="🧬 激酶相似性"),
         st.Page(page_molecular_generation, title="🧬 分子生成"),
         st.Page(page_automated_pipeline, title="⚙️ 自动化流程"),
+        st.Page(page_teach_lab, title="🎓 教学实验室"),
         st.Page(page_model_and_system, title="📊 模型与系统"),
     ]
 
@@ -1609,7 +1628,7 @@ def main():
     st.markdown(
         """
         <div style='text-align: center; color: gray;'>
-        🧬 药尘光 · EGFR抑制剂智能发现与设计平台 | 双核驱动，理形相生 | © 2026
+        🧬 药尘光 · AI 药物发现教学设计平台 | 双核驱动，理形相生 | © 2026
         <br>
         <small>面向本科生的AIDD教学平台 · 打开浏览器即学即用</small>
         </div>

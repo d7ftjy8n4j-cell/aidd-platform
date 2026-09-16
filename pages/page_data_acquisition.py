@@ -30,7 +30,7 @@ def show_data_acquisition():
 
         - **ChEMBL** (EMBL-EBI)：最大的公开生物活性数据库，收录数百万化合物-靶标活性数据
           - 核心概念：IC50、pIC50（=-log₁₀(IC50)）、Ki、Kd
-          - 检索技巧：靶点名用标准名称（如 "EGFR"），可加物种过滤
+          - 检索技巧：靶点名用标准名称（如 "EGFR" / "HER2" / "BTK"），可加物种过滤；平台不限定靶点
 
         - **PubChem** (NCBI)：全球最大的免费化学数据库
           - 相似性搜索基于 Tanimoto 系数（Morgan 指纹）
@@ -198,7 +198,7 @@ def _render_upload_mode():
 
         if smiles_col:
             st.success(f"检测到 SMILES 列: '{smiles_col}'")
-            st.dataframe(df.head(10), use_container_width=True)
+            st.dataframe(df.head(10), width="stretch")
 
             if st.button("🚀 导入分析", type="primary"):
                 smiles_list = df[smiles_col].dropna().tolist()
@@ -267,7 +267,7 @@ def _render_fetch_result(fetch_result: FetchResult):
             "来源": comp.source,
         })
     df_results = pd.DataFrame(data)
-    st.dataframe(df_results, use_container_width=True)
+    st.dataframe(df_results, width="stretch")
 
     # 下载按钮：使用完整 SMILES 构建导出数据，避免截断损坏分子结构
     export_data = []

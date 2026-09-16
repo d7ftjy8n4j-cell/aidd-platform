@@ -207,6 +207,23 @@ streamlit run app.py
 
 > 无 conda 环境时，分子对接（需 OpenBabel + Smina）、分子动力学（需 OpenMM）、MM-GBSA（需 OpenMM + MDTraj）和蛋白-配体作用分析（需 PLIP）将自动降级但其他功能正常。
 
+### 🧪 运行测试（开发）
+
+`tests/` 下的单测需要 `pytest`：它不属于运行时依赖，单独放在 `dev-requirements.txt`，`environment_md.yml` 的 `pip:` 段也包含它。
+
+```bash
+# 1. 安装测试依赖（一次性）
+conda activate egfr-md
+pip install -r dev-requirements.txt
+
+# 2. 在仓库根目录运行全部单测
+set KMP_DUPLICATE_LIB_OK=TRUE
+python -m pytest -q
+```
+
+> `KMP_DUPLICATE_LIB_OK=TRUE` 用于绕开 Windows 下 numpy/scipy/matplotlib 混装的 OpenMP 冲突（与 `启动药尘光.bat` 设置的是同一个变量）。
+> 若不想激活环境（`Python` 的 `Scripts` 目录不在 PATH 上），改用 `conda run -n egfr-md python -m pytest -q`，或直接调用环境内的解释器，例如 `"%USERPROFILE%\AppData\Roaming\mamba\envs\egfr-md\python.exe" -m pytest -q`。
+
 ### Windows 兼容性说明
 
 - **UTF-8 输出**：代码已内置 stdout/stderr UTF-8 重配置，GBK 控制台不会再因 emoji 输出崩溃
@@ -235,6 +252,7 @@ streamlit run app.py
 ├── app.py                      # 主入口（st.navigation 13 页，5 组合并标签）
 ├── 启动药尘光.bat              # Windows 一键启动器（环境变量 + 激活 + 启动）
 ├── requirements.txt            # PyPI 依赖（Streamlit Cloud 兼容）
+├── dev-requirements.txt        # 开发/测试依赖（pytest，仅本地）
 ├── packages.txt                # apt 系统依赖
 ├── environment_md.yml          # conda 全栈环境（含 OpenMM/OpenBabel）
 ├── Dockerfile                  # Docker 镜像
@@ -352,6 +370,14 @@ streamlit run app.py
 ```bash
 conda install -c conda-forge openmm openmmforcefields openff-toolkit pdbfixer mdtraj openbabel plip smina
 ```
+
+### 开发/测试依赖（`dev-requirements.txt`，仅本地）
+
+| 包 | 最低版本 | 说明 |
+|----|:---:|------|
+| `pytest` | 7 | 运行 `tests/` 下的单测（用例完全离线，不访问网络） |
+
+`environment_md.yml` 的 `pip:` 段同样包含 `pytest`，因此 `conda env create -f environment_md.yml` 建出来的环境可直接跑测试。运行时清单（`requirements.txt`）刻意不含 pytest，避免 Streamlit Cloud / Docker 镜像里混入测试工具。
 
 ---
 

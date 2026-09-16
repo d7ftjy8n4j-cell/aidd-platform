@@ -6,7 +6,7 @@ import pandas as pd
 from interaction_utils import fetch_klifs_ifps, compute_ifp_distance_matrix, plot_ifp_heatmap
 
 
-# ---------- 预置激酶列表（覆盖 EGFR 相关主要激酶）----------
+# ---------- 预置激酶列表（覆盖常见激酶，EGFR 只是其中之一）----------
 KINASE_OPTIONS = {
     "EGFR":   "Epidermal growth factor receptor",
     "ErbB2":  "Receptor tyrosine-protein kinase erbB-2",
@@ -109,7 +109,7 @@ def page_kinase_similarity():
 
                 # 显示数据表格
                 with st.expander("📋 原始 IFP 数据预览", expanded=False):
-                    st.dataframe(ifp_df.head(20), use_container_width=True)
+                    st.dataframe(ifp_df.head(20), width="stretch")
 
                 # 3. 计算距离矩阵
                 dist_matrix, labels = compute_ifp_distance_matrix(ifp_df)

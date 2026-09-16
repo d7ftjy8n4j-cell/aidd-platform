@@ -190,7 +190,7 @@ def page_molecular_dynamics():
                     pass
 
     st.title("⚛️ 分子动力学模拟 (MD)")
-    st.caption("基于 OpenMM 对 EGFR 蛋白-配体复合物进行分子动力学模拟，观察原子运动与构象变化。")
+    st.caption("基于 OpenMM 对蛋白-配体复合物（示例：EGFR 体系）进行分子动力学模拟，观察原子运动与构象变化。")
 
     with st.popover("🎓 教学点"):
         st.markdown("""
@@ -229,7 +229,7 @@ def page_molecular_dynamics():
         template_name = st.selectbox(
             "📋 快捷模板（自动填充下方参数）",
             ["自定义"] + list(LIGAND_TEMPLATES.keys()),
-            help="选择经典 EGFR-抑制剂共晶结构模板",
+            help="选择经典激酶共晶结构模板（示例：EGFR）",
             key="md_template_select",
         )
 
@@ -266,7 +266,7 @@ def page_molecular_dynamics():
         if input_mode == "PDB ID":
             pdb_id = st.text_input(
                 "PDB ID", value=default_pdb,
-                help="推荐 EGFR 结构: 3POZ (TAK-285), 2ITY (吉非替尼), 1M17 (埃罗替尼)",
+                help="推荐示例结构（EGFR 体系）: 3POZ (TAK-285), 2ITY (吉非替尼), 1M17 (埃罗替尼)",
                 key="md_pdb_id_input",
             ).strip().upper()
         else:
@@ -320,7 +320,7 @@ def page_molecular_dynamics():
         pdb_input = st.session_state.get("md_pdb_id_input", "")
         can_run = bool(pdb_input) or bool(st.session_state.get("md_pdb_content"))
         if can_run:
-            if st.button("➡️ 进入模拟设置", type="primary", use_container_width=True):
+            if st.button("➡️ 进入模拟设置", type="primary", width="stretch"):
                 st.session_state["md_go_to_run"] = True
                 st.rerun()
         else:
@@ -360,7 +360,7 @@ def page_molecular_dynamics():
 
             if st.button("🚀 开始分子动力学模拟", type="primary",
                          disabled=st.session_state["md_process"] is not None,
-                         use_container_width=True):
+                         width="stretch"):
                 # 清除旧缓存
                 _clear_result_cache(_RESULT_CACHE_FILE)
                 # 准备参数
@@ -437,11 +437,11 @@ def page_molecular_dynamics():
                 if not is_restored:
                     col_prog, col_cancel = st.columns([5, 1])
                     cancel_clicked = col_cancel.button("⏹ 取消模拟", type="secondary",
-                                                        use_container_width=True,
+                                                        width="stretch",
                                                         key=f"md_cancel_{id(process)}")
                 else:
                     cancel_clicked = st.button("⏹ 取消模拟", type="secondary",
-                                                use_container_width=True,
+                                                width="stretch",
                                                 key="md_cancel_restored")
 
                 if cancel_clicked:
@@ -682,7 +682,7 @@ def page_molecular_dynamics():
                         st.download_button(
                             "📄 拓扑 PDB", data=f.read(),
                             file_name="md_topology.pdb", mime="chemical/x-pdb",
-                            use_container_width=True,
+                            width="stretch",
                         )
             with col_dl2:
                 if os.path.exists(result.get("trajectory_xtc", "")):
@@ -690,7 +690,7 @@ def page_molecular_dynamics():
                         st.download_button(
                             "🎬 轨迹 XTC", data=f.read(),
                             file_name="md_trajectory.xtc", mime="application/octet-stream",
-                            use_container_width=True,
+                            width="stretch",
                         )
             with col_dl3:
                 if os.path.exists(result.get("mean_pdb_path", "")):
@@ -698,12 +698,12 @@ def page_molecular_dynamics():
                         st.download_button(
                             "📐 平均结构 PDB", data=f.read(),
                             file_name="md_mean_structure.pdb", mime="chemical/x-pdb",
-                            use_container_width=True,
+                            width="stretch",
                         )
 
             # ---- 清除结果 ----
             st.divider()
-            if st.button("🗑️ 清除模拟结果", type="secondary", use_container_width=True):
+            if st.button("🗑️ 清除模拟结果", type="secondary", width="stretch"):
                 # 同时删除 worker 输出目录，否则刷新后兜底恢复会重新找回旧结果
                 try:
                     import glob
@@ -728,7 +728,7 @@ def page_molecular_dynamics():
             st.subheader("🔗 下游衔接")
             st.markdown("将 MD 平均结构发送到「**💊 蛋白-配体作用分析**」页面，查看动态过程中的关键相互作用。")
 
-            if st.button("📤 导出平均结构到作用分析", use_container_width=True):
+            if st.button("📤 导出平均结构到作用分析", width="stretch"):
                 mean_pdb = result.get("mean_pdb_path", "")
                 if mean_pdb and os.path.exists(mean_pdb):
                     with open(mean_pdb, "r", encoding="utf-8") as f:

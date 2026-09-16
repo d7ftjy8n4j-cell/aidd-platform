@@ -1,0 +1,8 @@
+# ========== 测试（开发依赖，不属于运行时环境） ==========
+# 运行 tests/ 下的单测：
+#   pip install -r dev-requirements.txt
+#   set KMP_DUPLICATE_LIB_OK=TRUE
+#   python -m pytest -q
+# 用例本身完全离线（合成数据，不访问网络），但导入被测模块仍需运行时依赖
+# （numpy / pandas / rdkit / torch），因此本文件是 requirements.txt 的补充。
+pytest>=7

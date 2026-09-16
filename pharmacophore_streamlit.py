@@ -505,7 +505,7 @@ CC(=O)OC1=CC=CC=C1C(=O)O"""
                         
                         if feature_data:
                             df_features = pd.DataFrame(feature_data)
-                            st.dataframe(df_features, use_container_width=True)
+                            st.dataframe(df_features, width="stretch")
     
     with tab3:
         st.subheader("生成集成药效团")

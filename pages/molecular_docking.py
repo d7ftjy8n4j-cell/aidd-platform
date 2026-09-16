@@ -171,7 +171,7 @@ def page_molecular_docking():
                 if result["results"]:
                     df = pd.DataFrame(result["results"])
                     df.columns = ["构象 #", "结合能 (kcal/mol)", "RMSD l.b.", "RMSD u.b."]
-                    st.dataframe(df, use_container_width=True, hide_index=True)
+                    st.dataframe(df, width="stretch", hide_index=True)
 
                     # 结合能分布图
                     st.subheader("📈 结合能分布")
@@ -181,7 +181,7 @@ def page_molecular_docking():
                     })
                     st.bar_chart(
                         chart_data.set_index("构象"),
-                        use_container_width=True,
+                        width="stretch",
                         color="#4CAF50",
                     )
                 else:
@@ -294,7 +294,7 @@ def page_molecular_docking():
             if cached.get("results"):
                 df_cached = pd.DataFrame(cached["results"])
                 df_cached.columns = ["构象 #", "结合能 (kcal/mol)", "RMSD l.b.", "RMSD u.b."]
-                st.dataframe(df_cached, use_container_width=True, hide_index=True)
+                st.dataframe(df_cached, width="stretch", hide_index=True)
 
             st.download_button(
                 label="💾 下载上次结果 (SDF)",

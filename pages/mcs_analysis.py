@@ -137,7 +137,7 @@ def page_mcs_analysis():
         )
 
     # ---------- 执行分析 ----------
-    if st.button("🚀 计算 MCS", type="primary", use_container_width=True):
+    if st.button("🚀 计算 MCS", type="primary", width="stretch"):
         smiles_list = [
             s.strip()
             for s in input_text.strip().split("\n")
@@ -214,7 +214,7 @@ def page_mcs_analysis():
                     if idx < len(images):
                         with cols[c]:
                             st.caption(f"分子 {idx + 1}")
-                            st.image(images[idx], use_container_width=True)
+                            st.image(images[idx], width="stretch")
                             short_smi = (
                                 valid_smiles[idx]
                                 if len(valid_smiles[idx]) <= 45
@@ -228,7 +228,7 @@ def page_mcs_analysis():
                 "序号": range(1, len(valid_smiles) + 1),
                 "SMILES": valid_smiles,
             })
-            st.dataframe(df_mols, use_container_width=True)
+            st.dataframe(df_mols, width="stretch")
 
         # 5. 下载
         col_dl1, col_dl2 = st.columns(2)

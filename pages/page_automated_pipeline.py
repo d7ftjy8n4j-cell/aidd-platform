@@ -34,7 +34,7 @@ def page_automated_pipeline():
     
     with st.popover("🎓 教学点"):
         st.markdown("""学习药物发现的典型筛选流程：
-        1. **活性预测**：AI模型预测分子是否对EGFR有抑制活性
+        1. **活性预测**：AI 模型预测分子的靶点活性（内置模型基于 EGFR 数据训练，其他靶点可在 🎓 教学实验室 现场训练）
         2. **成药性筛选**：ADME/Ro5评估口服生物利用度
         3. **毒性警报**：PAINS/Brenk子结构标注潜在风险
         4. **药效团匹配**：检查分子是否含有关键药效特征
@@ -109,7 +109,7 @@ def page_automated_pipeline():
 
                         # 预览
                         with st.expander("📋 分子列表预览", expanded=False):
-                            st.dataframe(df.head(10), use_container_width=True)
+                            st.dataframe(df.head(10), width="stretch")
                     else:
                         st.error("CSV必须包含 'smiles' 列，当前列名: " + ", ".join(df.columns.tolist()))
                 except Exception as e:
@@ -167,7 +167,7 @@ def page_automated_pipeline():
         run_clicked = st.button(
             "🚀 启动流程",
             type="primary",
-            use_container_width=True,
+            width="stretch",
             disabled=not can_run
         )
     
@@ -227,7 +227,7 @@ def _render_pipeline_results(pipeline: Pipeline):
     df_summary = pipeline.results_to_dataframe(results)
     st.dataframe(
         df_summary,
-        use_container_width=True,
+        width="stretch",
         hide_index=True,
         column_config={
             "RF活性概率": st.column_config.NumberColumn(format="%.4f"),
@@ -326,7 +326,7 @@ def _show_detailed_report(pipeline: Pipeline, result: SingleMoleculeResult, idx:
                 data=report.encode('utf-8'),
                 file_name=f"pipeline_report_{timestamp}.md",
                 mime="text/markdown",
-                use_container_width=True,
+                width="stretch",
             )
         with col_dl2:
             # CSV 汇总下载
@@ -337,7 +337,7 @@ def _show_detailed_report(pipeline: Pipeline, result: SingleMoleculeResult, idx:
                 data=csv_data.encode('utf-8'),
                 file_name=f"pipeline_summary_{timestamp}.csv",
                 mime="text/csv",
-                use_container_width=True,
+                width="stretch",
             )
     
     with tab_json:

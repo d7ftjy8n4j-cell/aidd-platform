@@ -58,7 +58,7 @@ def knime_export_section(
             do_export = st.button(
                 "📥 导出", type="primary",
                 key=f"{key_prefix}_export_btn",
-                use_container_width=True,
+                width="stretch",
             )
 
         with tip_col:

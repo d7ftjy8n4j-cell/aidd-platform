@@ -93,7 +93,7 @@ def page_protein_ligand_interaction():
                 with col_right:
                     if not df.empty:
                         st.subheader("📋 相互作用列表")
-                        st.dataframe(df, use_container_width=True, height=400)
+                        st.dataframe(df, width="stretch", height=400)
 
                         # 类型分布图
                         st.subheader("📊 相互作用类型分布")

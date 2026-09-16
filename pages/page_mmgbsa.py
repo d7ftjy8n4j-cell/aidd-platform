@@ -166,7 +166,7 @@ def page_mmgbsa():
     if st.button(
         "🚀 开始 MM-GBSA 计算",
         type="primary",
-        use_container_width=True,
+        width="stretch",
         disabled=btn_disabled,
     ):
         if not os.path.exists(top_file):
@@ -272,7 +272,7 @@ def page_mmgbsa():
                 "G_receptor": [round(v, 2) for v in result["g_receptor_all"]],
                 "G_ligand": [round(v, 2) for v in result["g_ligand_all"]],
             })
-            st.dataframe(df, use_container_width=True, hide_index=True)
+            st.dataframe(df, width="stretch", hide_index=True)
 
         # 3. 可视化
         st.subheader("📈 ΔG 分布")
@@ -313,7 +313,7 @@ def page_mmgbsa():
                     round(np.max(arr), 2),
                 ],
             })
-            st.dataframe(stats_df, use_container_width=True, hide_index=True)
+            st.dataframe(stats_df, width="stretch", hide_index=True)
 
         # 4. 下载
         col_dl1, col_dl2 = st.columns(2)

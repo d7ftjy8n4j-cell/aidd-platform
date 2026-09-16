@@ -57,7 +57,7 @@ def page_molecular_generation():
         return
 
     st.title("🧬 分子生成 (SMILES-RNN)")
-    st.caption("基于字符级 LSTM 自回归生成全新 EGFR 抑制剂候选分子.")
+    st.caption("基于字符级 LSTM 自回归生成全新候选分子（内置数据集为 EGFR 抑制剂，可迁移到其他靶点）。")
 
     with st.popover("🎓 教学点"):
         st.markdown("""
@@ -93,7 +93,7 @@ def page_molecular_generation():
 
         # 方式 1: 使用内置数据一键训练
         st.subheader("快速开始")
-        if st.button("⚡ 使用内置 EGFR 数据集训练", use_container_width=True, key="molgen_train_default"):
+        if st.button("⚡ 使用内置 EGFR 数据集训练", width="stretch", key="molgen_train_default"):
             with st.spinner("正在训练 LSTM 模型 (约需 30-60 秒)..."):
                 try:
                     from utils.molecular_generation_utils import MolecularGenerator, DEFAULT_SMILES
@@ -150,7 +150,7 @@ def page_molecular_generation():
         )
         custom_epochs = st.slider("训练轮数", 5, 50, 15, key="molgen_custom_epochs")
 
-        if st.button("🔄 开始训练/微调", use_container_width=True, key="molgen_train_custom"):
+        if st.button("🔄 开始训练/微调", width="stretch", key="molgen_train_custom"):
             smiles = [s.strip() for s in custom_smiles_text.split("\n") if s.strip()]
             # 与后端 train_many 要求一致：至少 10 个有效 SMILES
             if len(smiles) < 10:
@@ -293,7 +293,7 @@ def page_molecular_generation():
         )
 
     # ---------- 生成按钮 ----------
-    if st.button("🚀 生成分子", type="primary", use_container_width=True, key="molgen_generate"):
+    if st.button("🚀 生成分子", type="primary", width="stretch", key="molgen_generate"):
         gen: "MolecularGenerator" = st.session_state["molgen_generator"]
 
         with st.spinner(f"自回归采样 {num_samples} 个 SMILES..."):
@@ -335,7 +335,7 @@ def page_molecular_generation():
                             mol = Chem.MolFromSmiles(item["canonical"])
                             if mol:
                                 img = Draw.MolToImage(mol, size=(200, 150))
-                                st.image(img, use_container_width=True)
+                                st.image(img, width="stretch")
                     except Exception:
                         pass
                     st.code(item["canonical"][:60], language="text")
