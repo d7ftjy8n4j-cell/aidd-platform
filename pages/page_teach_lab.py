@@ -25,6 +25,7 @@
 作者：dadamingli
 """
 
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 import numpy as np
@@ -44,6 +45,7 @@ except Exception:  # pragma: no cover - 取决于环境
     _RDKIT_DRAW_AVAILABLE = False
 
 from utils import teach_lab as tl
+from components.knime_export import knime_export_section
 
 
 # ============================================================================
@@ -276,8 +278,261 @@ def _render_step1() -> None:
 
 
 # ============================================================================
-# 步骤 2：清洗数据
+# 其它数据来源（原「📦 数据获取」页）· 结果表的附加能力
 # ============================================================================
+def _render_molecule_preview(smiles_list: List[str], *, limit: int = 5) -> None:
+    """把前 ``limit`` 个分子画成一张 2D 结构网格。
+
+    RDKit 缺失或绘制失败时降级为文字提示，不影响页面其它流程。
+    """
+    valid = [s for s in smiles_list if isinstance(s, str) and s.strip()][:limit]
+    if not valid:
+        return
+    with st.expander(f"🔬 分子结构预览（前 {len(valid)} 个）", expanded=False):
+        if not _RDKIT_DRAW_AVAILABLE:
+            st.caption("RDKit 未安装，结构预览不可用。")
+            return
+        mols = []
+        for smiles in valid:
+            mol = Chem.MolFromSmiles(smiles)
+            if mol is not None:
+                mols.append(mol)
+        if not mols:
+            st.caption("无法绘制分子结构：这些 SMILES 均无法被 RDKit 解析。")
+            return
+        try:
+            image = Draw.MolsToGridImage(
+                mols, molsPerRow=min(len(mols), 5), subImgSize=(200, 150)
+            )
+            st.image(image)
+        except Exception as exc:  # pragma: no cover - 绘图失败不影响主流程
+            st.caption(f"结构预览不可用：{exc}")
+
+
+def _render_result_csv_download(result_df: pd.DataFrame, *, source: str, key: str) -> None:
+    """把结果表导出为 CSV（UTF-8 BOM，Excel 直接打开不乱码）。
+
+    注意：pandas 的 ``to_csv(..., encoding="utf-8-sig")`` 在**没有路径**时返回 str，
+    encoding 会被忽略、不会真的写入 BOM；这里先导出字符串再自己 ``encode``，
+    才能带上 BOM。
+    """
+    csv_bytes = result_df.to_csv(index=False).encode("utf-8-sig")
+    st.download_button(
+        label="📥 下载结果 CSV",
+        data=csv_bytes,
+        file_name=f"data_{source}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+        mime="text/csv",
+        key=key,
+    )
+
+
+def _render_result_extras(
+    result_df: pd.DataFrame,
+    *,
+    smiles_column: str,
+    source: str,
+    key_prefix: str,
+    knime_title: str,
+    download: bool = True,
+) -> None:
+    """分子结果表的三项附加能力：结构预览 / 结果 CSV 下载 / KNIME 导出。
+
+    「送入下游页面并联动自动化流程」由调用方在按钮处写入 session_state，
+    因为 CSV 上传与 PubChem 两条分支的提示文案不同。
+    """
+    if smiles_column in result_df.columns:
+        smiles_list = [
+            s for s in result_df[smiles_column].astype(str).tolist() if s.strip()
+        ]
+    else:  # pragma: no cover - 调用方保证列存在
+        smiles_list = []
+    _render_molecule_preview(smiles_list)
+    if download:
+        _render_result_csv_download(
+            result_df, source=source, key=f"{key_prefix}_download"
+        )
+    if smiles_list:
+        knime_export_section(
+            pd.DataFrame({"smiles": smiles_list}),
+            title=knime_title,
+            key_prefix=f"{key_prefix}_knime",
+            metadata={"source": source},
+        )
+
+
+def _render_alternative_sources() -> None:
+    """原「📦 数据获取」页的功能，已并入教学实验室。
+
+    提供 ChEMBL 之外的两条数据来源：
+        ① 上传 CSV / Excel（自动识别 SMILES 列；带活性列则可直接进入清洗）
+        ② PubChem 相似性检索（按 Tanimoto 相似度找类似化合物）
+    不带活性值的分子会写入会话数据（``batch_smiles_list``），供聚类 / 预测等页面使用。
+    """
+    with st.expander(
+        "📦 其它数据来源（原「📦 数据获取」页已并入：CSV / Excel 上传 · PubChem 相似性检索）",
+        expanded=False,
+    ):
+        st.caption(
+            "除了按靶点从 ChEMBL 下载，还可以①上传自己的表格，或②用 PubChem 找结构相似的化合物。"
+        )
+        tab_upload, tab_pubchem = st.tabs(["📄 上传 CSV / Excel", "🔎 PubChem 相似性检索"])
+
+        # ---------------- ① 上传表格 ----------------
+        with tab_upload:
+            uploaded = st.file_uploader(
+                "选择 CSV / Excel 文件", type=["csv", "xlsx", "xls"], key="tl_alt_upload"
+            )
+            if uploaded is not None:
+                try:
+                    if uploaded.name.lower().endswith(".csv"):
+                        alt_df = pd.read_csv(uploaded)
+                    else:
+                        alt_df = pd.read_excel(uploaded)
+                except Exception as exc:
+                    st.error(f"文件解析失败：{exc}")
+                    alt_df = None
+
+                if alt_df is not None and not alt_df.empty:
+                    column_map = {str(c).strip().lower(): c for c in alt_df.columns}
+                    smiles_column = next(
+                        (column_map[key] for key in ("smiles", "canonical_smiles", "smile") if key in column_map),
+                        None,
+                    )
+                    activity_column = next(
+                        (column_map[key] for key in
+                         ("pic50", "p_ic50", "ic50", "standard_value", "activity") if key in column_map),
+                        None,
+                    )
+                    if smiles_column is None:
+                        st.error(f"没有找到 SMILES 列，当前列：{', '.join(str(c) for c in alt_df.columns)}")
+                    else:
+                        st.dataframe(alt_df.head(10), width="stretch", height=220)
+                        st.caption(
+                            f"识别到 SMILES 列 `{smiles_column}`"
+                            + (f"，活性列 `{activity_column}`" if activity_column else "（未找到活性列）")
+                        )
+                        col_left, col_right = st.columns(2)
+                        with col_left:
+                            if st.button(
+                                "📥 作为教学实验室原始数据（需要活性列）",
+                                key="tl_alt_as_raw",
+                                disabled=activity_column is None,
+                                type="primary",
+                            ):
+                                activity_values = pd.to_numeric(alt_df[activity_column], errors="coerce")
+                                if str(activity_column).strip().lower() in ("pic50", "p_ic50"):
+                                    is_pic50 = True
+                                    pic50_series = activity_values
+                                    activity_note = "pIC50（已是 pIC50）"
+                                else:
+                                    # 表格里给的是 IC50/Ki 等原始值：按 nM 处理并换算 pIC50
+                                    is_pic50 = False
+                                    pic50_series = activity_values.apply(tl.pic50_from_nm)
+                                    activity_note = f"{activity_column}（按 nM 换算 pIC50）"
+                                raw_df = pd.DataFrame({
+                                    "molecule_chembl_id": [f"UPLOAD{i}" for i in range(len(alt_df))],
+                                    "smiles": alt_df[smiles_column].astype(str),
+                                    "standard_value": activity_values,
+                                    "standard_units": "" if is_pic50 else "nM",
+                                    "pIC50": pic50_series,
+                                    "activity_type": str(activity_column),
+                                    "target_name": "上传数据",
+                                    "target_chembl_id": "UPLOAD",
+                                }).dropna(subset=["pIC50"])
+                                if raw_df.empty:
+                                    st.error("换算后没有有效的 pIC50，请检查活性列的单位与取值。")
+                                else:
+                                    st.session_state.tl_raw_df = raw_df.reset_index(drop=True)
+                                    st.session_state.tl_target = "上传数据"
+                                    _clear_downstream("download")
+                                    st.success(
+                                        f"已载入 {len(raw_df)} 条上传数据（活性列：{activity_note}），"
+                                        "下滑到「步骤 2」即可继续清洗。"
+                                    )
+                        with col_right:
+                            if st.button(
+                                "🔀 作为待分析分子（无需活性列）",
+                                key="tl_alt_as_pending",
+                                help="把这些分子放进会话数据，供 🧩 分子聚类 / 🧪 分子预测 使用。",
+                            ):
+                                smiles_values = [
+                                    s for s in alt_df[smiles_column].astype(str).tolist() if s.strip()
+                                ]
+                                st.session_state.batch_smiles_list = smiles_values
+                                st.session_state.batch_data_source = "教学实验室(CSV 上传)"
+                                # 联动：「⚙️ 自动化流程」页直接切到「已导入数据」模式
+                                st.session_state.pipeline_input_mode = "📦 已导入数据"
+                                st.success(
+                                    f"已把 {len(smiles_values)} 个分子放入会话数据，"
+                                    "可直接去 🧩 分子聚类 / 🧪 分子预测 使用。"
+                                )
+
+                        # 结构预览 + KNIME 导出（上传文件本身即 CSV，无需重复下载）
+                        _render_result_extras(
+                            alt_df,
+                            smiles_column=smiles_column,
+                            source="CSV 上传",
+                            key_prefix="tl_alt_upload",
+                            knime_title="教学实验室上传数据",
+                            download=False,
+                        )
+
+        # ---------------- ② PubChem 相似性 ----------------
+        with tab_pubchem:
+            st.caption("以某个分子为参考，找结构相似的化合物（Tanimoto 相似度）。")
+            reference_smiles = st.text_input(
+                "参考分子 SMILES",
+                value=tl.EXAMPLE_SMILES,
+                key="tl_alt_pubchem_smiles",
+                help="默认是吉非替尼；也可以粘贴你自己的分子。",
+            )
+            similarity_threshold = st.slider("相似度阈值 (%)", 50, 100, 90, 5, key="tl_alt_pubchem_threshold")
+            if st.button("🔎 检索相似化合物", key="tl_alt_pubchem_run"):
+                with st.spinner("正在向 PubChem 检索…"):
+                    try:
+                        from utils.data_fetcher import DataFetcher
+
+                        fetch_result = DataFetcher().fetch_similar_by_smiles(
+                            reference_smiles, threshold=int(similarity_threshold), max_records=50
+                        )
+                    except Exception as exc:
+                        fetch_result = None
+                        st.error(f"检索失败：{exc}")
+                if fetch_result is not None:
+                    if not getattr(fetch_result, "success", False):
+                        st.error(getattr(fetch_result, "error", "PubChem 检索失败"))
+                    else:
+                        rows = [
+                            {
+                                "smiles": compound.smiles,
+                                "chembl_id": getattr(compound, "chembl_id", None),
+                                "activity_value": getattr(compound, "activity_value", None),
+                            }
+                            for compound in fetch_result.compounds
+                        ]
+                        st.session_state["tl_alt_pubchem_df"] = pd.DataFrame(rows)
+                        st.success(f"找到 {len(rows)} 个相似化合物")
+
+            pubchem_df = st.session_state.get("tl_alt_pubchem_df")
+            if isinstance(pubchem_df, pd.DataFrame) and not pubchem_df.empty:
+                st.dataframe(pubchem_df.head(20), width="stretch", height=240)
+                if st.button("📤 送入下游页面（聚类 / 预测）", key="tl_alt_pubchem_send", type="primary"):
+                    st.session_state.batch_smiles_list = pubchem_df["smiles"].astype(str).tolist()
+                    st.session_state.batch_data_source = "教学实验室(PubChem)"
+                    # 联动：「⚙️ 自动化流程」页直接切到「已导入数据」模式
+                    st.session_state.pipeline_input_mode = "📦 已导入数据"
+                    st.success("已放入会话数据，去 🧩 分子聚类 / 🧪 分子预测 即可使用。")
+
+                # 结构预览 + 结果 CSV 下载 + KNIME 导出
+                _render_result_extras(
+                    pubchem_df,
+                    smiles_column="smiles",
+                    source="PubChem",
+                    key_prefix="tl_alt_pubchem",
+                    knime_title="PubChem 相似性检索结果",
+                )
+
+
 def _render_step2() -> None:
     """步骤 2：清洗数据，并用 expander 逐个展示每个阶段的数据流失。"""
     st.subheader("步骤 2 · 清洗数据（看清每一步流失了多少）")
@@ -644,6 +899,11 @@ def page_teach_lab() -> None:
         "不给你答案，给你流程。四步：**下载真实数据 → 清洗（看清流失）→ 现场训练两个模型 → 预测新分子**。"
         "每一步都在这个页面上发生，你可以随时改参数、重跑、对比。"
     )
+    st.caption(
+        "本页同时承担「数据获取」职责：**ChEMBL 靶点检索 / PubChem 相似性 / CSV·Excel 上传**"
+        "（原「📦 数据获取」标签页已并入本页）。训练好的小模型是会话级的，"
+        "可以在 **🧩 分子聚类** 与 **🧬 分子生成** 页直接复用（当打分器）。"
+    )
 
     status = tl.get_teach_lab_status()
     status_cols = st.columns(3)
@@ -676,6 +936,7 @@ def page_teach_lab() -> None:
         )
 
     _render_step1()
+    _render_alternative_sources()
     st.divider()
     _render_step2()
     st.divider()

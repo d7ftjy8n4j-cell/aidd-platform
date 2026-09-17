@@ -41,38 +41,43 @@ def show_clustering_page():
         "batch_smiles_list" in st.session_state
         and st.session_state.batch_smiles_list
     )
-    batch_source = st.session_state.get("batch_data_source", "数据获取")
+    batch_source = st.session_state.get("batch_data_source", "教学实验室")
+
+    # 兼容旧会话：选项文案已从「数据获取」改为「教学实验室」，
+    # 若 session_state 里还是旧文案，radio 会因取值不在 options 中而报错，这里先迁移。
+    if st.session_state.get("clustering_input_option") == "📂 从数据获取模块导入":
+        st.session_state["clustering_input_option"] = "📂 从教学实验室导入"
 
     # 有数据时始终切换为"从数据获取模块导入"（覆盖用户之前可能选错的状态）
     if has_batch_data:
-        st.session_state["clustering_input_option"] = "📂 从数据获取模块导入"
+        st.session_state["clustering_input_option"] = "📂 从教学实验室导入"
 
     input_option = st.sidebar.radio(
         "选择输入方式",
         [
-            "📂 从数据获取模块导入",
+            "📂 从教学实验室导入",
             "📄 上传 CSV 文件",
             "✏️ 手动输入 SMILES 列表",
         ],
         key="clustering_input_option"
     )
 
-    if has_batch_data and input_option != "📂 从数据获取模块导入":
+    if has_batch_data and input_option != "📂 从教学实验室导入":
         st.sidebar.info(
-            "检测到当前会话中已有获取的化合物数据，请切换到“📂 从数据获取模块导入”开始聚类。",
+            "检测到当前会话中已有获取的化合物数据，请切换到“📂 从教学实验室导入”开始聚类。",
             icon="ℹ️"
         )
         if st.sidebar.button(
             "使用已获取数据",
             key="clustering_switch_to_imported_data"
         ):
-            st.session_state.clustering_input_option = "📂 从数据获取模块导入"
+            st.session_state.clustering_input_option = "📂 从教学实验室导入"
             st.rerun()
 
     molecules: list = []
     mol_ids: list = []
 
-    if input_option == "📂 从数据获取模块导入":
+    if input_option == "📂 从教学实验室导入":
         if has_batch_data:
             smiles_list = st.session_state.batch_smiles_list
             st.sidebar.success(
@@ -87,7 +92,7 @@ def show_clustering_page():
                     mol_ids.append(f"mol_{i} ({smi[:20]}...)")
         else:
             st.sidebar.warning(
-                "⚠️ 请先在「📦 数据获取」页面获取化合物数据\n\n"
+                "⚠️ 请先在「🎓 教学实验室」页面获取化合物数据（原「📦 数据获取」已并入该页）\n\n"
                 "支持的操作：\n"
                 "- 按靶点名称从 ChEMBL 检索\n"
                 "- 按分子结构相似性搜索\n"
@@ -369,6 +374,30 @@ def show_clustering_page():
                 st.session_state.pop("pipeline_results", None)
                 st.session_state.pop("pipeline_smiles_list", None)
                 st.rerun()
+
+    # ---- 教学实验室小模型打分（可选：模型来自本会话的教学实验室训练结果）----
+    try:
+        from components.teach_lab_model import (
+            build_smiles_list_from_summary,
+            render_teach_lab_scoring,
+        )
+
+        representative_smiles = build_smiles_list_from_summary(summary, molecules)
+        if representative_smiles:
+            render_teach_lab_scoring(
+                representative_smiles,
+                title="🤖 用教学实验室训练的小模型给「簇代表分子」打分",
+                key_prefix="cluster_score",
+                threshold_default=0.5,
+                caption=(
+                    "小模型是你在 🎓 教学实验室 用某个靶点数据现场训练的。"
+                    "用它给簇代表分子打分，就能看出「结构上聚成一类的分子，活性是否也相似」——"
+                    "这正是骨架聚类用于先导化合物筛选的价值所在。"
+                ),
+                download_name="cluster_representative_scores.csv",
+            )
+    except Exception as exc:
+        st.warning(f"小模型打分模块不可用：{exc}")
 
     # KNIME 导出（簇中心 SMILES 直接写入，修复导出永远缺 SMILES 列的问题）
     try:

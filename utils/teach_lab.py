@@ -27,7 +27,7 @@ import logging
 import math
 import time
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 import pandas as pd
@@ -1282,6 +1282,72 @@ def predict_smiles_gnn(result: TrainingResult, smiles: str) -> Dict[str, Any]:
 # ============================================================================
 # 自测入口：python -m utils.teach_lab（不依赖 Streamlit）
 # ============================================================================
+def predict_dataframe_rf(
+    result: TrainingResult,
+    smiles_list: Sequence[str],
+    progress_callback: Optional[Callable[[int, int], None]] = None,
+) -> pd.DataFrame:
+    """用教学实验室训练出的 RF 模型给一批分子打分（跨页面复用入口）。
+
+    Args:
+        result: ``train_rf_model`` 的返回结果。
+        smiles_list: 待打分 SMILES 列表。
+        progress_callback: ``(已完成, 总数)`` 回调，页面用于显示进度。
+
+    Returns:
+        DataFrame：``smiles`` / ``rf_probability``（无法解析为 NaN）/ ``rf_label``
+    """
+    total = len(smiles_list)
+    rows: List[Dict[str, Any]] = []
+    for index, smiles in enumerate(smiles_list, start=1):
+        probability = float("nan")
+        label: Optional[str] = None
+        prediction = predict_smiles_rf(result, smiles) if result is not None else {"success": False}
+        if prediction.get("success"):
+            probability = float(prediction["probability_active"])
+            label = str(prediction["label"])
+        rows.append({"smiles": smiles, "rf_probability": probability, "rf_label": label})
+        if progress_callback is not None and (index % 10 == 0 or index == total):
+            try:
+                progress_callback(index, total)
+            except Exception:
+                pass
+    return pd.DataFrame(rows)
+
+
+def predict_dataframe_gnn(
+    result: TrainingResult,
+    smiles_list: Sequence[str],
+    progress_callback: Optional[Callable[[int, int], None]] = None,
+) -> pd.DataFrame:
+    """用教学实验室现场训练的 GNN 给一批分子打分（跨页面复用入口）。
+
+    Args:
+        result: ``train_gnn_model`` 的返回结果。
+        smiles_list: 待打分 SMILES 列表。
+        progress_callback: ``(已完成, 总数)`` 回调。
+
+    Returns:
+        DataFrame：``smiles`` / ``gnn_probability``（无法建图为 NaN）/ ``gnn_label``
+    """
+    total = len(smiles_list)
+    rows: List[Dict[str, Any]] = []
+    for index, smiles in enumerate(smiles_list, start=1):
+        probability = float("nan")
+        label: Optional[str] = None
+        prediction = predict_smiles_gnn(result, smiles) if result is not None else {"success": False}
+        if prediction.get("success"):
+            probability = float(prediction["probability_active"])
+            label = str(prediction["label"])
+        rows.append({"smiles": smiles, "gnn_probability": probability, "gnn_label": label})
+        if progress_callback is not None and (index % 10 == 0 or index == total):
+            try:
+                progress_callback(index, total)
+            except Exception:
+                pass
+    return pd.DataFrame(rows)
+
+
 if __name__ == "__main__":  # pragma: no cover
     logging.basicConfig(level=logging.INFO, format="%(levelname)s | %(message)s")
     print("=" * 64)

@@ -9,3 +9,6 @@
 *.jpeg binary
 *.gif binary
 *.pdf binary
+
+# Windows 批处理必须是 CRLF（cmd.exe 对 LF-only 的 if/for 块不保证按行解析）
+*.bat text eol=crlf

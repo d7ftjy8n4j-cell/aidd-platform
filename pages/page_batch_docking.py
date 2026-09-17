@@ -23,13 +23,18 @@ def page_batch_docking():
     if not smina_available or not openbabel_available:
         st.title("🧩 批量对接与结果对比")
         if not smina_available:
-            st.error("❌ 未检测到 Smina 命令行工具")
-            st.info(
-                "安装方法：\n"
-                "- **macOS**: `brew install smina`\n"
-                "- **Linux**: 下载预编译包到 `/usr/local/bin/smina`\n"
-                "- **conda**: `conda install -c conda-forge smina`\n"
-                "- **其他**: 参见 https://sourceforge.net/projects/smina/"
+            st.error("❌ 未检测到 Smina 可执行文件（命令行工具）")
+            st.markdown(
+                """
+                **原因**：Smina 是 C++ 原生可执行文件，**PyPI 上不存在 `smina` 包**
+                （`pip install smina` 会 404），因此无法通过 `requirements.txt` 安装；
+                Streamlit Community Cloud 的构建只做 `apt` + `pip`，Debian 仓库里也没有 smina，
+                云端容器天然缺少它 —— **这不是 Python 依赖冲突**。
+
+                **解决**：本地用 `conda install -c conda-forge smina` 并双击 `启动药尘光.bat` 启动；
+                或使用仓库 `Dockerfile`（已内置 smina 静态二进制下载）部署。
+                详见 README → 常见问题 → 为什么分子对接页面提示未检测到 Smina。
+                """
             )
         if not openbabel_available:
             st.error("❌ 未检测到 openbabel Python 绑定")
@@ -529,15 +534,23 @@ def _render_batch_results(result, compact=False):
 
 @st.cache_resource
 def _check_smina() -> bool:
-    """检查 Smina 命令行是否可用（缓存结果）"""
+    """检查 Smina 是否可用（缓存结果）。
+
+    注意：先解析出**绝对路径**再执行，而不是直接跑 `smina` ——
+    用 Streamlit 启动时子进程的 PATH 可能不含 conda 的 Library\\bin
+    （Windows 上 smina.exe 就装在那里），直接跑会误报"未安装"。
+    """
     try:
-        result = subprocess.run(
-            ["smina", "--help"],
-            capture_output=True,
-            timeout=5,
-        )
+        from docking_utils import find_smina_executable
+
+        exe = find_smina_executable()
+        if not exe:
+            return False
+        result = subprocess.run([exe, "--help"], capture_output=True, timeout=30)
         return result.returncode == 0
     except (FileNotFoundError, subprocess.TimeoutExpired):
+        return False
+    except Exception:
         return False
 
 

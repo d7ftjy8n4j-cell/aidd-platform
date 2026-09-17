@@ -306,6 +306,8 @@ def page_molecular_generation():
 
         valid = [r for r in results if r["valid"]]
         invalid = [r for r in results if not r["valid"]]
+        # 存进 session_state：让"小模型打分"区块在后续 rerun 中依然可用
+        st.session_state["molgen_last_valid"] = valid
 
         # ---- 统计卡片 ----
         st.subheader("📊 生成统计")
@@ -409,6 +411,47 @@ def page_molecular_generation():
             with st.expander(f"⚠️ 无效 SMILES ({len(invalid)} 个)", expanded=False):
                 for i, item in enumerate(invalid):
                     st.caption(f"#{i + 1}: `{item['smiles']}`")
+
+    # ---------- 教学实验室小模型：打分 / 筛选（scorer 角色） ----------
+    with st.expander("❓ 为什么生成模型不能「直接用」教学实验室的小模型？", expanded=False):
+        st.markdown("""
+        **因为这两类模型解决的是不同问题：一个负责"写"，一个负责"判"。**
+
+        | 对比 | 🧬 分子生成（LSTM） | 🎓 教学实验室 的 RF / GNN |
+        |------|------------------|----------------------|
+        | 模型类型 | **生成模型**（字符级语言模型） | **判别模型**（分类器） |
+        | 输入 | 已有 SMILES 语料 | 12 个 RDKit 描述符 / 13 维原子特征图 |
+        | 输出 | 逐字符采样出**新 SMILES** | 给定分子 → 活性概率 |
+        | 训练目标 | 最大化语料似然（学会"化学语法"） | 最小化分类损失（学会"活性边界"） |
+        | 能否互相替代 | ❌ 分类器不会生成分子 | ❌ 生成器不会判断活性 |
+
+        所以"直接用小模型生成分子"在方法上不成立。**正确做法是把小模型当打分器（scorer）**：
+        生成器负责产出候选，小模型负责筛选排序 —— 这正是 REINVENT 中
+        *generator + scoring function* 的分工，也是强化学习式分子生成的基本范式。
+        下面的区块就是把这一步接起来（打完分即可下载，送去做 ADME / 对接）。
+
+        ⚠️ 另外注意：小模型是在**某个靶点**的数据上训练的（你在教学实验室下载的那个靶点），
+        它筛出来的是"对该靶点可能活性"的分子；换靶点请回 🎓 教学实验室 重新训练。
+        """)
+
+    last_valid = st.session_state.get("molgen_last_valid") or []
+    if last_valid:
+        try:
+            from components.teach_lab_model import render_teach_lab_scoring
+
+            render_teach_lab_scoring(
+                [item["canonical"] for item in last_valid],
+                title="🔎 用小模型筛选生成分子（scorer）",
+                key_prefix="molgen_score",
+                threshold_default=0.5,
+                caption=(
+                    "把生成器产出的候选分子交给教学实验室训练的小模型打分，"
+                    "按活性概率排序后再决定哪些值得送去做成药性筛选与分子对接。"
+                ),
+                download_name="generated_smiles_scores.csv",
+            )
+        except Exception as exc:
+            st.warning(f"小模型打分模块不可用：{exc}")
 
     # ---------- 模型信息 ----------
     if st.session_state["molgen_stats"]:

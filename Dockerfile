@@ -20,6 +20,15 @@ COPY requirements.txt .
 # 安装Python依赖
 RUN pip install --no-cache-dir -r requirements.txt
 
+# 安装 Smina（分子对接引擎）：C++ 原生二进制，PyPI 没有对应 pip 包（pip install simna 会 404），
+# 只能下载官方静态包放进镜像。下载失败也不让构建失败——对接页会自动降级提示。
+RUN set -eux; \
+    ( curl -fsSL -o /usr/local/bin/smina \
+        https://sourceforge.net/projects/smina/files/smina.static/download \
+      && chmod +x /usr/local/bin/smina \
+      && /usr/local/bin/smina --version ) \
+    || echo "⚠️ smina 下载失败：镜像仍可用，但分子对接/批量对接页会提示未检测到 Smina";
+
 # 复制所有应用文件
 COPY . .
 

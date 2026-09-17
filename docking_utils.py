@@ -198,6 +198,61 @@ def _parse_pdb_for_docking(pdb_path: str, ligand_resname: str = None, buffer: fl
 
 # ---------- 5. 执行 Smina 对接 ----------
 
+def find_smina_executable():
+    """查找 smina 可执行文件，返回绝对路径；找不到返回 None。
+
+    为什么要这么麻烦：Smina 是 C++ 原生二进制（PyPI 上没有对应的 pip 包），
+    而且用 Streamlit 启动时，**子进程的 PATH 未必包含 conda 环境的 Library\\bin**
+    （Windows 下 smina.exe 恰恰就装在那里）。只查 PATH 会把"已安装"误判成"未安装"，
+    所以这里额外扫描当前环境与同机其它 conda 环境目录。
+    """
+    import shutil as _shutil
+    import sys as _sys
+
+    # 1) 先查 PATH（conda activate 后 Scripts / Library\\bin 都在 PATH 上）
+    for name in ("smina", "smina.exe"):
+        found = _shutil.which(name)
+        if found:
+            return found
+
+    # 2) 再扫环境目录：当前环境 + CONDA_PREFIX + 同机其它 envs/*
+    prefixes = []
+    for env_var in ("CONDA_PREFIX", "VIRTUAL_ENV"):
+        value = os.environ.get(env_var)
+        if value:
+            prefixes.append(value)
+    prefixes.append(_sys.prefix)
+    base_prefix = getattr(_sys, "base_prefix", None)
+    if base_prefix and base_prefix not in prefixes:
+        prefixes.append(base_prefix)
+    envs_dir = os.path.join(os.path.dirname(_sys.prefix), "envs")
+    if os.path.isdir(envs_dir):
+        try:
+            for env_name in sorted(os.listdir(envs_dir)):
+                prefixes.append(os.path.join(envs_dir, env_name))
+        except OSError:
+            pass
+
+    relative_dirs = (
+        ("Library", "bin"),      # conda on Windows
+        ("Scripts",),            # venv / conda scripts
+        ("bin",),                # conda on Linux / venv
+        ("Library", "usr", "bin"),
+    )
+    for prefix in prefixes:
+        for rel in relative_dirs:
+            for exe_name in ("smina", "smina.exe"):
+                candidate = os.path.join(prefix, *rel, exe_name)
+                if os.path.isfile(candidate):
+                    return candidate
+
+    # 3) 最后看几个常见系统路径（官方静态二进制常放这里）
+    for candidate in ("/usr/local/bin/smina", "/usr/bin/smina", "/opt/smina/smina"):
+        if os.path.isfile(candidate):
+            return candidate
+    return None
+
+
 def run_smina(
     ligand_path: str,
     protein_path: str,
@@ -231,12 +286,16 @@ def run_smina(
     -------
     str : smina 标准输出文本
     """
-    # 使用绝对路径确保 Streamlit / Conda 子进程能找到 smina
-    import shutil as _shutil_dock
-    smina_exe = _shutil_dock.which("smina")
+    # 用 find_smina_executable() 解析绝对路径：只查 PATH 会在
+    # "conda 装了但 PATH 里没有 Library\\bin" 的情况下误报未安装。
+    smina_exe = find_smina_executable()
     if smina_exe is None:
         raise FileNotFoundError(
-            "smina 未在系统 PATH 中找到。请安装: conda install -c conda-forge smina"
+            "未找到 smina 可执行文件。它不是 pip 包（PyPI 上没有 smina 这个项目，"
+            "pip install smina 会 404），只能用 conda 安装或放置官方静态二进制：\n"
+            "  conda install -c conda-forge smina\n"
+            "  或从 https://sourceforge.net/projects/smina/ 下载 smina.static 到 /usr/local/bin/smina"
+            "若确认已安装仍报此错，通常是启动应用时没有激活对应的 conda 环境。"
         )
 
     cmd = [

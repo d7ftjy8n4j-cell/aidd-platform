@@ -94,17 +94,7 @@ except ImportError as e:
     def page_automated_pipeline():
         st.error("自动化流程页面加载失败，请检查 pages/page_automated_pipeline.py 文件")
 
-# ========== 导入数据获取与聚类页面 ==========
-try:
-    from pages.page_data_acquisition import show_data_acquisition
-    DATA_ACQUISITION_PAGE_AVAILABLE = True
-    logging.info("数据获取页面加载成功")
-except ImportError as e:
-    DATA_ACQUISITION_PAGE_AVAILABLE = False
-    logging.error(f"数据获取页面导入失败: {e}")
-    def show_data_acquisition():
-        st.error("数据获取页面加载失败，请检查 pages/page_data_acquisition.py 文件")
-
+# ========== 导入聚类页面 ==========
 try:
     from pages.page_clustering import show_clustering_page
     CLUSTERING_PAGE_AVAILABLE = True
@@ -1351,8 +1341,8 @@ def render_sidebar():
         # 教学指南（折叠）
         with st.expander("📘 教学指南（新手必读）", expanded=False):
             st.markdown("""
-            **药尘光 · AIDD 学习路径** (13 步)  
-            1. **📦 数据获取**：从 ChEMBL / PubChem 获取化合物数据  
+            **药尘光 · AIDD 学习路径** (12 步)  
+            1. **🎓 教学实验室**：ChEMBL / PubChem / CSV 取数 → 下载 → 清洗 → 现场训练 → 预测（小模型可在聚类/生成页复用）  
             2. **🧪 分子预测**：输入 SMILES，体验双引擎对比 + SHAP 解释  
             3. **🧪 分子评估**：成药性筛选 + 理化性质 + 毒性警报（一站式）  
             4. **🎯 药效团设计**：提取活性关键基团，生成 3D 药效团模型  
@@ -1363,8 +1353,7 @@ def render_sidebar():
             9. **🧬 激酶相似性**：KLIFS 激酶组选择性分析  
             10. **🧬 分子生成**：LSTM 自回归生成新颖候选分子（内置数据集为 EGFR 抑制剂）  
             11. **⚙️ 自动化流程**：预测→筛选→药效团→相似性一键串联  
-            12. **🎓 教学实验室**：ChEMBL 下载 → 清洗（看清流失）→ 现场训练 RF/GNN → 预测新分子  
-            13. **📊 模型与系统**：性能指标 + 双引擎架构 + 项目背景全览  
+            12. **📊 模型与系统**：性能指标 + 双引擎架构 + 项目背景全览  
             ---
             每个标签页和子标签均有 **🎓 教学弹窗**，点击即可学习相关理论。
             """)
@@ -1372,8 +1361,8 @@ def render_sidebar():
         # 功能导航指南（折叠）
         with st.expander("📖 功能导航指南", expanded=False):
             st.markdown("""
-            **14 个顶层标签页**（部分内含子标签）：  
-            - **📦 数据获取**：ChEMBL/PubChem 检索 + CSV 上传，一键送入后续分析  
+            **13 个顶层标签页**（部分内含子标签）：  
+            - **🎓 教学实验室**：ChEMBL / PubChem 检索 + CSV 上传（原「📦 数据获取」已并入）+ 四步闭环  
             - **🧪 分子预测**：RF + GNN 双引擎 + SHAP 瀑布图 + 不确定性估计  
             - **🧪 分子评估** [`🛡️药物筛选` `🔍化学依据`]：成药性 + 毒性 + 描述符 + 相似性  
             - **🎯 药效团设计**：3D 药效团特征提取与模型生成  
@@ -1384,7 +1373,6 @@ def render_sidebar():
             - **🧬 激酶相似性**：KLIFS-IFP 激酶组结合模式比较  
             - **🧬 分子生成**：LSTM 自回归生成新颖候选分子（内置数据集为 EGFR 抑制剂）  
             - **⚙️ 自动化流程**：预测→筛选→药效团→相似性一键串联  
-            - **🎓 教学实验室**：下载 → 清洗 → 现场训练 → 预测，四步闭环可复现  
             - **📊 模型与系统**：模型性能 + 架构图 + 技术栈 + 项目背景（四合一）  
             """)
 
@@ -1404,8 +1392,9 @@ def render_sidebar():
         st.divider()
         rating = st.feedback("stars", key="global_feedback")
         if rating is not None:
-            # st.feedback 返回 1-5，直接使用无需 +1
-            st.caption(f"感谢您的 {int(rating)} 星评价！")
+            # 注意：st.feedback("stars") 返回的是 **0-based 索引**（点第 5 颗星 → 4），
+            # 所以展示时必须 +1，否则永远少一颗星（打满 5 星却显示"4 星评价"）。
+            st.caption(f"感谢您的 {int(rating) + 1} 星评价！")
 
 
 # ============================================================
@@ -1445,9 +1434,10 @@ def page_home():
         1. 在 **🧪 分子预测** 输入吉非替尼 SMILES，体验 AI 预测
         2. 在 **🧪 分子评估** 查看其成药性 (Lipinski) 和毒性风险
         3. 在 **🔬 结构分析** 加载 2ITY 观察蛋白-配体 3D 结合模式
-        4. 在 **🎓 教学实验室** 亲手走一遍「下载 → 清洗 → 现场训练 → 预测」四步闭环
+        4. 在 **🎓 教学实验室**（第 2 个标签）亲手走一遍「下载 → 清洗 → 现场训练 → 预测」四步闭环；
+           训好的小模型可在 **🧩 分子聚类** / **🧬 分子生成** 页直接复用（当打分器）
 
-        **推荐学习路径**：左侧导航栏 → 📦 数据获取 → ... → 📊 模型与系统
+        **推荐学习路径**：左侧导航栏 → 🎓 教学实验室（含数据获取）→ ... → 📊 模型与系统
 
         每个标签页都有 **🎓 教学弹窗** — 点击即可学习背后的理论！
         """)
@@ -1596,10 +1586,12 @@ def page_md_unified():
 # 主程序入口 - st.navigation
 # ============================================================
 def main():
-    """主程序入口 —— 标签页按 AIDD 认知逻辑编排（13 页）"""
+    """主程序入口 —— 标签页按 AIDD 认知逻辑编排（13 页：首页 + 教学实验室 + 10 个分析页 + 模型与系统）"""
     pages = [
         st.Page(page_home, title="🏠 首页"),
-        st.Page(show_data_acquisition, title="📦 数据获取"),
+        # 🎓 教学实验室 提到第二位：它同时承担「数据获取」职责（ChEMBL / PubChem / CSV 上传），
+        # 原「📦 数据获取」标签页已并入本页，不再单独占一个标签。
+        st.Page(page_teach_lab, title="🎓 教学实验室"),
         st.Page(page_molecular_prediction, title="🧪 分子预测"),
         st.Page(page_molecular_evaluation, title="🧪 分子评估"),
         st.Page(page_pharmacophore, title="🎯 药效团设计"),
@@ -1610,7 +1602,6 @@ def main():
         st.Page(page_kinase_similarity, title="🧬 激酶相似性"),
         st.Page(page_molecular_generation, title="🧬 分子生成"),
         st.Page(page_automated_pipeline, title="⚙️ 自动化流程"),
-        st.Page(page_teach_lab, title="🎓 教学实验室"),
         st.Page(page_model_and_system, title="📊 模型与系统"),
     ]
 

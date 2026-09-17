@@ -5,6 +5,7 @@
 """
 
 import subprocess
+import sys
 import pandas as pd
 import streamlit as st
 
@@ -30,15 +31,50 @@ def page_molecular_docking():
     **典型示例**：EGFR 激酶 (PDB: 2ITO) + Gefitinib (SMILES)
     """)
 
+    if smina_available:
+        try:
+            from docking_utils import find_smina_executable
+
+            _smina_path = find_smina_executable()
+            if _smina_path:
+                st.caption(f"✅ Smina 已就绪：`{_smina_path}`")
+        except Exception:
+            pass
+
     if not smina_available:
-        st.error("❌ 未检测到 Smina 命令行工具")
-        st.info(
-            "安装方法：\n"
-            "- **macOS**: `brew install smina`\n"
-            "- **Linux**: 下载预编译包到 `/usr/local/bin/smina`\n"
-            "- **conda**: `conda install -c conda-forge smina`\n"
-            "- **其他**: 参见 https://sourceforge.net/projects/smina/"
+        st.error("❌ 未检测到 Smina 可执行文件（命令行工具）")
+        st.markdown(
+            """
+            **真实原因（不是 Python 依赖冲突）**
+
+            Smina 是用 C++ 编译的**原生可执行文件**（AutoDock Vina 的分支）。
+            PyPI 上**并不存在 `smina` 这个包** —— `pip install smina` 会直接返回 404，
+            所以它无法写进 `requirements.txt`，只能靠下面两条路装：
+
+            | 途径 | 做法 | 适用场景 |
+            |------|------|----------|
+            | conda-forge | `conda install -c conda-forge smina` | 本地开发（本项目 `egfr-md` 环境走这条） |
+            | 官方静态二进制 | 下载 [smina.static](https://sourceforge.net/projects/smina/) 放到 `/usr/local/bin/smina` 并 `chmod +x` | Linux / Docker 镜像 |
+
+            **为什么 Streamlit Community Cloud 上必然没有**：云端构建只做两件事——
+            `apt` 装 `packages.txt` 的系统包、`pip` 装 `requirements.txt` 的 Python 包；
+            Debian 仓库里没有 smina，PyPI 里也没有，因此部署出来的容器天然缺这个二进制，
+            页面只能提示未检测到。**这是环境限制，不是库版本/依赖冲突。**
+
+            **三条可行路线**：
+            1. **本地运行（推荐）**：双击 `启动药尘光.bat`（自动激活 `egfr-md`，smina 已装在
+               `...\\envs\\egfr-md\\Library\\bin\\smina.exe`）；
+            2. **Docker 部署**：用仓库 `Dockerfile`（已内置 smina 静态二进制下载步骤）构建镜像后部署；
+            3. 只在云端体验其它功能：对接页会自动降级提示，其余页面不受影响。
+            """
         )
+        if sys.platform == "win32":
+            st.info(
+                "💡 若你是在 VS Code / PyCharm 里直接点运行（没经过 `conda activate egfr-md`），"
+                "PATH 里不会包含该环境的 `Library\\bin`，即使 smina 已安装也会检测不到——"
+                "请改用 `启动药尘光.bat` 启动。"
+            )
+        st.caption("详见 README → 常见问题 → 为什么分子对接页面提示未检测到 Smina。")
         return
 
     # ---------- 输入区域 ----------
