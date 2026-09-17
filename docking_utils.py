@@ -24,10 +24,21 @@ _openbabel_available = None
 
 
 def _ensure_openbabel():
-    """确保 openbabel 已安装并可用（懒加载）"""
+    """确保 openbabel 已安装并可用（懒加载）。
+
+    注意：在 `import openbabel` **之前**必须先补齐 conda 激活等价物
+    （PATH / BABEL_DATADIR）——否则 Open Babel 的插件与数据目录找不到，
+    会表现为"pdb/sdf/mol2 格式未注册"，`pybel.readfile("pdb", ...)` 直接报错。
+    """
     global _openbabel_available
     if _openbabel_available is not None:
         return _openbabel_available
+    try:
+        from utils.runtime_env import ensure_conda_runtime_env
+
+        ensure_conda_runtime_env()
+    except Exception:  # 不在包内被导入时（如直接 python docking_utils.py）忽略
+        pass
     try:
         from openbabel import pybel  # noqa: F811
         _openbabel_available = True

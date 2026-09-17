@@ -83,6 +83,25 @@ if 'theme' not in st.session_state:
 # ========== 添加路径 ==========
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+# ========== 运行环境自愈（等价于 conda activate）==========
+# 启动器为不依赖 conda-on-PATH，直接调用 <env>\python.exe -m streamlit，
+# 这跳过了 conda activate → PATH 里没有 <env>\Library\bin（smina.exe 就在那）、
+# 也没设置 BABEL_DATADIR（Open Babel 靠它找数据/插件）。
+# 不补这两样，就会出现"明明装好了却提示未检测到 Smina"和
+# "pdb is not a recognised Open Babel format" 这类假故障。
+try:
+    from utils.runtime_env import ensure_conda_runtime_env
+
+    _runtime_env_changes = ensure_conda_runtime_env()
+    if _runtime_env_changes.get("path_added") or _runtime_env_changes.get("env_set"):
+        logging.info(
+            "运行环境自愈完成：PATH 补充 %s，环境变量 %s",
+            _runtime_env_changes.get("path_added"),
+            _runtime_env_changes.get("env_set"),
+        )
+except Exception as _runtime_env_err:  # 自愈失败不能影响应用启动
+    logging.warning("运行环境自愈失败（其它功能不受影响）: %s", _runtime_env_err)
+
 # ========== 导入自动化流程页面 ==========
 try:
     from pages.page_automated_pipeline import page_automated_pipeline

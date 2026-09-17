@@ -389,14 +389,47 @@ def page_molecular_docking():
         """)
 
 
+@st.cache_resource
 def _check_smina() -> bool:
-    """检查 Smina 命令行工具是否可用"""
+    """检查 Smina 命令行工具是否可用（结果缓存，避免每次 rerun 都起子进程）。
+
+    注意：**不能直接跑裸名字 `smina`** —— 那要求它出现在 PATH 上。实测本机
+    `shutil.which("smina")` 返回 None（smina.exe 装在 conda 环境的 `Library\bin`，
+    而用某些启动方式（VS Code 直接运行、或启动器直接调用环境里的 python）时
+    `Library\bin` 并不在 PATH 上），于是"明明装好了却报未检测到"。
+    这里统一用 docking_utils.find_smina_executable() 解析绝对路径，并以输出/退出码判断，
+    不能只看"子进程启动成功"（启动成功 ≠ 工具能跑）。
+    """
     try:
-        subprocess.run(
-            ["smina", "--help"],
-            capture_output=True,
-            timeout=5,
-        )
-        return True
-    except (FileNotFoundError, subprocess.TimeoutExpired):
-        return False
+        from docking_utils import find_smina_executable
+    except Exception:
+        find_smina_executable = None  # type: ignore[assignment]
+
+    candidates = []
+    if find_smina_executable is not None:
+        try:
+            exe = find_smina_executable()
+            if exe:
+                candidates.append(exe)
+        except Exception:
+            pass
+    # 兜底：仍然尝试 PATH 上的裸名字（例如用户把 smina 放进系统目录并加入 PATH）
+    candidates.append("smina")
+
+    for candidate in candidates:
+        try:
+            result = subprocess.run(
+                [candidate, "--help"],
+                capture_output=True,
+                timeout=60,
+            )
+        except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+            continue
+        if result.returncode == 0:
+            return True
+        # smina 在参数不全时会打印用法并以非 0 退出；只要输出里确实是 smina 的用法就算可用
+        output = (result.stdout or b"") + (result.stderr or b"")
+        lowered = output.lower()
+        if b"smina" in lowered and (b"usage" in lowered or b"receptor" in lowered):
+            return True
+    return False
