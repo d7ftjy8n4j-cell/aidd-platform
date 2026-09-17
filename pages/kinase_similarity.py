@@ -3,7 +3,12 @@
 """
 import streamlit as st
 import pandas as pd
-from interaction_utils import fetch_klifs_ifps, compute_ifp_distance_matrix, plot_ifp_heatmap
+from interaction_utils import (
+    fetch_klifs_ifps,
+    compute_ifp_distance_matrix,
+    compute_kinase_distance_matrix,
+    plot_ifp_heatmap,
+)
 
 
 # ---------- 预置激酶列表（覆盖常见激酶，EGFR 只是其中之一）----------
@@ -66,6 +71,11 @@ def page_kinase_similarity():
         help="选择多个激酶以比较它们的配体结合模式相似性"
     )
 
+    st.caption(
+        "首次分析要从 KLIFS 拉取结构列表与相互作用指纹（IFP），通常需要 1~3 分钟；"
+        "结果会缓存 24 小时，同一组激酶再次分析会立刻返回。"
+    )
+
     if st.button("📊 分析结合模式相似性", type="primary"):
         if len(selected) < 2:
             st.warning("请至少选择 2 个激酶进行比较")
@@ -111,12 +121,19 @@ def page_kinase_similarity():
                 with st.expander("📋 原始 IFP 数据预览", expanded=False):
                     st.dataframe(ifp_df.head(20), width="stretch")
 
-                # 3. 计算距离矩阵
-                dist_matrix, labels = compute_ifp_distance_matrix(ifp_df)
+                # 3. 计算距离矩阵（按激酶聚合：两两激酶之间取所有结构对的平均距离）
+                dist_matrix, labels = compute_kinase_distance_matrix(ifp_df)
 
                 # 4. 热图
                 st.subheader("🔥 结合模式相似性热图")
-                st.caption("Jaccard 距离：0 = 完全一致，1 = 完全不同。距离越小，结合模式越相似。")
+                st.caption(
+                    "矩阵元素 = 两个激酶**全部高质量结构**两两比对后的平均 Jaccard 距离："
+                    "0 = 结合模式完全一致，1 = 完全不同。距离越小，两种激酶越可能被同一个分子同时结合。"
+                )
+                st.caption(
+                    f"本次参与比对的激酶：{len(labels)} 个，结构数见上方柱状图"
+                    "（每个激酶最多取 100 个高质量结构；首个分析结果会缓存 24 小时）。"
+                )
                 fig = plot_ifp_heatmap(dist_matrix, labels)
                 st.pyplot(fig)
 

@@ -8,6 +8,7 @@
 """
 import os
 import re
+import time
 import tempfile
 import urllib.request
 import logging
@@ -180,44 +181,102 @@ def analyze_plip(pdb_id=None, pdb_content=None):
 # ========== 模块2：激酶 IFP 指纹相似性 (KLIFS REST API) ==========
 
 # ---- KLIFS API 常量 ----
-KLIFS_BASE_URL = "https://klifs.vu-compmedchem.nl/api/v2"
+# KLIFS 已从 klifs.vu-compmedchem.nl 迁移到 klifs.net，并把 REST 端点从 v1 风格
+# 改成了函数式路径（官方 Swagger：https://klifs.net/swagger_v2/swagger.json，basePath=/api_v2）：
+#     kinases                -> kinase_ID
+#     structures             -> structures_list
+#     interactions/structure -> interactions_get_IFP
+# 而且 IFP 的返回字段名从 fingerprint 改成了 IFP。旧域名只会 301 到 klifs.net，
+# 旧路径在新站返回 400 ["KLIFS error: No correct function calls were specified."]，
+# 页面因此表现为"未获取到任何结构数据"（网络本身是通的）。
+KLIFS_BASE_URL = "https://klifs.net/api_v2"
+
+#: 每个激酶最多取多少个高质量结构（热门靶点有几百个结构，逐个取 IFP 会把页面拖死）
+KLIFS_MAX_STRUCTURES_PER_KINASE = 100
+
+#: 批量取 IFP 时每批的结构数（KLIFS 支持 structure_ID 逗号分隔）
+KLIFS_IFP_BATCH_SIZE = 50
 
 
-def _klifs_api_get(endpoint: str, params: dict = None):
+def _klifs_api_get(endpoint: str, params: dict = None, max_attempts: int = 3):
     """
-    统一的 KLIFS API 调用封装，带缓存。
-    请求失败时抛出异常（st.cache_data 默认不缓存异常），
-    避免临时故障被缓存 24 小时；调用方负责捕获并降级。
+    统一的 KLIFS API 调用封装。
+
+    * 4xx（端点/参数写错）**不重试**，直接把 KLIFS 的响应体带进异常，
+      便于一眼看出"契约又变了"（例如 400 ["KLIFS error: No correct function calls were specified."]）；
+    * 连接被重置 / 超时 / 5xx 属于瞬时报错，最多重试 max_attempts 次（实测 KLIFS
+      在连续请求后会 Reset 连接，不重试会导致整个激酶被静默跳过）。
+
+    请求最终失败时抛出异常（st.cache_data 默认不缓存异常），避免故障被缓存 24 小时。
     """
     url = f"{KLIFS_BASE_URL}/{endpoint.lstrip('/')}"
-    resp = requests.get(url, params=params, timeout=30)
-    resp.raise_for_status()
-    return resp.json()
+    last_error = None
+    for attempt in range(1, max_attempts + 1):
+        try:
+            resp = requests.get(url, params=params, timeout=60)
+            if resp.status_code >= 400:
+                raise requests.HTTPError(
+                    f"KLIFS {resp.status_code} @ {resp.url} :: {resp.text[:200]}",
+                    response=resp,
+                )
+            return resp.json()
+        except requests.HTTPError as exc:
+            status = getattr(getattr(exc, "response", None), "status_code", None)
+            if status is not None and 400 <= status < 500:
+                raise  # 契约/参数问题：重试没有意义
+            last_error = exc
+        except (requests.ConnectionError, requests.Timeout) as exc:
+            last_error = exc
+
+        if attempt < max_attempts:
+            logger.warning(
+                "KLIFS 请求失败（第 %s/%s 次，%s）：%s",
+                attempt, max_attempts, endpoint, last_error,
+            )
+            time.sleep(1.5 * attempt)
+
+    raise last_error if last_error is not None else RuntimeError("KLIFS 请求失败")
+
+
+def _to_float(value, default: float) -> float:
+    """KLIFS 的数值字段常以字符串返回（"1.7" / "8"），统一安全转 float。"""
+    try:
+        if value is None or value == "":
+            return default
+        return float(value)
+    except (TypeError, ValueError):
+        return default
 
 
 def _fetch_kinase_id(kinase_name: str) -> int | None:
     """
     通过激酶名称查找 KLIFS 内部 ID。
-    KLIFS API: GET /kinases?kinase_name={name}
+    KLIFS API: GET /kinase_ID?kinase_name={name}&species=Human
     """
     try:
-        kinases = _klifs_api_get("kinases", {"kinase_name": kinase_name})
+        kinases = _klifs_api_get(
+            "kinase_ID", {"kinase_name": kinase_name, "species": "Human"}
+        )
     except requests.RequestException as e:
         logger.error(f"KLIFS 激酶查询失败 [{kinase_name}]: {e}")
         return None
-    if kinases and isinstance(kinases, list) and len(kinases) > 0:
-        return kinases[0].get("kinase_ID")
+    if isinstance(kinases, dict):  # 防御：某些版本可能返回单条 dict
+        kinases = [kinases]
+    if isinstance(kinases, list):
+        for item in kinases:
+            if isinstance(item, dict) and item.get("kinase_ID"):
+                return item.get("kinase_ID")
     return None
 
 
 def _fetch_structures_for_kinase_id(kinase_id: int) -> list:
     """
     获取指定激酶的高质量结构列表。
-    KLIFS API: GET /structures?kinase_ID={id}
+    KLIFS API: GET /structures_list?kinase_ID={id}
     过滤条件：人源、分辨率 ≤ 3.0 Å、质量分 ≥ 6、DFG-in
     """
     try:
-        structures = _klifs_api_get("structures", {"kinase_ID": kinase_id})
+        structures = _klifs_api_get("structures_list", {"kinase_ID": kinase_id})
     except requests.RequestException as e:
         logger.error(f"KLIFS 结构查询失败 [kinase_ID={kinase_id}]: {e}")
         return []
@@ -237,24 +296,52 @@ def _fetch_structures_for_kinase_id(kinase_id: int) -> list:
     return filtered
 
 
-def _fetch_ifp_for_structure(structure_id: int) -> str | None:
+def _fetch_ifps_batch(structure_ids) -> dict:
     """
-    获取某个结构的相互作用指纹 (IFP)。
-    KLIFS API: GET /interactions/structure?structure_ID={id}
-    返回 85 位的 0/1 字符串。
+    批量获取多个结构的相互作用指纹 (IFP)。
+
+    KLIFS API: GET /interactions_get_IFP?structure_ID=1,2,3
+    （实测支持逗号分隔的 ID 列表，可用一批请求取代几十次单条请求）
+
+    返回:
+        {structure_ID(int): "0101..."}
+
+    注意：v2 的字段名是 **IFP**（旧版叫 fingerprint）；指纹长度随 KLIFS 版本变化
+    （当前 595 位），所以下游只按"0/1 字符串"处理，不写死长度。
     """
-    try:
-        data = _klifs_api_get("interactions/structure", {"structure_ID": structure_id})
-    except requests.RequestException as e:
-        logger.error(f"KLIFS IFP 查询失败 [structure_ID={structure_id}]: {e}")
-        return None
-    if data:
-        # KLIFS API 返回单条记录（dict）而非列表
+    ids = []
+    for sid in structure_ids:
+        try:
+            ids.append(int(sid))
+        except (TypeError, ValueError):
+            continue
+
+    result = {}
+    for start in range(0, len(ids), KLIFS_IFP_BATCH_SIZE):
+        chunk = ids[start:start + KLIFS_IFP_BATCH_SIZE]
+        try:
+            data = _klifs_api_get(
+                "interactions_get_IFP",
+                {"structure_ID": ",".join(str(i) for i in chunk)},
+            )
+        except requests.RequestException as e:
+            logger.error(f"KLIFS IFP 查询失败 [structure_IDs={chunk[:5]}...]: {e}")
+            continue
         if isinstance(data, dict):
-            return data.get("fingerprint", None)
-        elif isinstance(data, list) and len(data) > 0:
-            return data[0].get("fingerprint", None)
-    return None
+            data = [data]
+        for item in data or []:
+            if not isinstance(item, dict):
+                continue
+            sid = item.get("structure_ID")
+            fingerprint = item.get("IFP") or item.get("fingerprint")
+            if sid is not None and fingerprint:
+                result[int(sid)] = fingerprint
+    return result
+
+
+def _fetch_ifp_for_structure(structure_id: int) -> str | None:
+    """获取单个结构的 IFP（内部走批量接口）。"""
+    return _fetch_ifps_batch([structure_id]).get(int(structure_id))
 
 
 @st.cache_data(ttl=86400)  # 缓存 24 小时
@@ -272,22 +359,35 @@ def fetch_klifs_ifps(kinase_names):
     all_rows = []
 
     for kinase_name in kinase_names:
-        # Step 1: 查找激酶 ID
+        # Step 1: 查找激酶 ID（KLIFS v2: /kinase_ID?kinase_name=...&species=Human）
         kinase_id = _fetch_kinase_id(kinase_name)
         if kinase_id is None:
             logger.warning(f"在 KLIFS 中未找到激酶: {kinase_name}")
             continue
 
-        # Step 2: 获取结构列表
+        # Step 2: 获取结构列表（KLIFS v2: /structures_list?kinase_ID=...）
         structures = _fetch_structures_for_kinase_id(kinase_id)
         logger.info(f"[{kinase_name}] 找到 {len(structures)} 个高质量结构")
 
-        # Step 3: 逐个获取 IFP
+        # 结构太多时按"质量分高、分辨率低"优先，并限制数量：
+        # EGFR 这类热门靶点有几百个合格结构，全量取 IFP 会让页面等好几分钟。
+        structures = sorted(
+            structures,
+            key=lambda s: (
+                -_to_float(s.get("quality_score"), 0.0),
+                _to_float(s.get("resolution"), 99.0),
+            ),
+        )[:KLIFS_MAX_STRUCTURES_PER_KINASE]
+        logger.info(f"[{kinase_name}] 取前 {len(structures)} 个结构参与 IFP 比对")
+
+        # Step 3: 批量获取 IFP（KLIFS v2: /interactions_get_IFP?structure_ID=1,2,3）
+        ifps = _fetch_ifps_batch([s.get("structure_ID") for s in structures])
         for s in structures:
-            sid = s.get("structure_ID")
-            if not sid:
+            try:
+                sid = int(s.get("structure_ID"))
+            except (TypeError, ValueError):
                 continue
-            ifp_str = _fetch_ifp_for_structure(sid)
+            ifp_str = ifps.get(sid)
             if ifp_str:
                 all_rows.append({
                     "structure.klifs_id": sid,
@@ -342,6 +442,86 @@ def compute_ifp_distance_matrix(ifp_df):
     return dist_matrix, labels
 
 
+def compute_kinase_distance_matrix(ifp_df):
+    """
+    把结构级 IFP 聚合成 **激酶级** 距离矩阵。
+
+    页面要回答的问题是"哪些激酶的结合模式彼此相似"（选择性/脱靶风险），
+    所以矩阵元素取两个激酶全部高质量结构对的平均 Jaccard 距离：
+        dist[i][j] = mean( Jaccard(IFF_i 的每个结构, IFP_j 的每个结构) )，对角为 0
+
+    为什么不直接用 compute_ifp_distance_matrix：那个是**逐结构**的，
+    4 个激酶就能产生两三百行 → 热图既画不动也读不懂。
+
+    返回:
+        dist_matrix : np.ndarray   (n_kinase, n_kinase)
+        labels      : list[str]    激酶名（按字母序）
+    """
+    ifp_col = None
+    for col in ["interaction.fingerprint", "ifp"]:
+        if col in ifp_df.columns:
+            ifp_col = col
+            break
+    if ifp_col is None:
+        raise ValueError("IFP 数据框中未找到指纹列 (interaction.fingerprint / ifp)")
+
+    kinase_col = "kinase.klifs_name"
+    if kinase_col not in ifp_df.columns:
+        # 没有激酶列时退回逐结构矩阵，避免页面直接崩掉
+        return compute_ifp_distance_matrix(ifp_df)
+
+    groups = {}
+    for kinase, sub in ifp_df.groupby(kinase_col):
+        groups[str(kinase)] = np.array(
+            [[c == "1" for c in str(fp)] for fp in sub[ifp_col]], dtype=bool
+        )
+
+    labels = sorted(groups)
+    n = len(labels)
+    dist_matrix = np.zeros((n, n))
+    for i in range(n):
+        for j in range(i + 1, n):
+            a, b = groups[labels[i]], groups[labels[j]]
+            if a.shape[1] != b.shape[1]:
+                # 指纹长度不一致（极少见，例如不同 KLIFS 版本的数据混在一起）
+                # 截断到公共长度再比，避免 jaccard 直接抛 ValueError
+                width = min(a.shape[1], b.shape[1])
+                a, b = a[:, :width], b[:, :width]
+            distance = float(pairwise_distances(a, b, metric="jaccard").mean())
+            dist_matrix[i, j] = distance
+            dist_matrix[j, i] = distance
+    return dist_matrix, labels
+
+
+def _matplotlib_cjk_font() -> str | None:
+    """为 matplotlib 找一个能显示中文的字体名；找不到返回 None。
+
+    背景：matplotlib 默认字体不含 CJK，中文标题会渲染成"豆腐块"并刷一堆
+    "Glyph xxxx missing from current font" 警告。
+    """
+    try:
+        from matplotlib import font_manager
+    except Exception:
+        return None
+    candidates = [
+        "Microsoft YaHei",   # Windows
+        "SimHei",            # Windows
+        "PingFang SC",       # macOS
+        "Noto Sans CJK SC",  # Linux
+        "Source Han Sans SC",
+        "WenQuanYi Micro Hei",
+        "Arial Unicode MS",
+    ]
+    try:
+        available = {font.name for font in font_manager.fontManager.ttflist}
+    except Exception:
+        return None
+    for name in candidates:
+        if name in available:
+            return name
+    return None
+
+
 def plot_ifp_heatmap(dist_matrix, labels):
     """
     绘制 IFP 距离矩阵热图。
@@ -355,17 +535,29 @@ def plot_ifp_heatmap(dist_matrix, labels):
         )
     import seaborn as sns
 
-    fig, ax = plt.subplots(figsize=(10, 8))
+    # 仅在小矩阵上标数字：几十行以上的矩阵标注会拖慢渲染且根本看不清
+    annotate = len(labels) <= 15
+    fig, ax = plt.subplots(figsize=(max(6.0, 0.9 * len(labels) + 3), max(5.0, 0.8 * len(labels) + 3)))
     sns.heatmap(
         dist_matrix,
         xticklabels=labels,
         yticklabels=labels,
         cmap='viridis_r',
-        annot=True,
-        fmt='.2f',
+        annot=annotate,
+        fmt='.2f' if annotate else '',
         ax=ax,
         linewidths=0.5
     )
-    ax.set_title("激酶结合模式相似性 (Jaccard距离, 越小越相似)", fontsize=14, fontweight='bold')
+    cjk_font = _matplotlib_cjk_font()
+    if cjk_font:
+        plt.rcParams["font.sans-serif"] = [cjk_font] + list(
+            plt.rcParams.get("font.sans-serif", [])
+        )
+        plt.rcParams["axes.unicode_minus"] = False
+        title = "激酶结合模式相似性（Jaccard 距离，越小越相似）"
+    else:
+        # 系统没有中文字体时退回英文标题，总比一片豆腐块好
+        title = "Kinase binding-mode similarity (Jaccard distance, lower = more similar)"
+    ax.set_title(title, fontsize=14, fontweight='bold')
     plt.tight_layout()
     return fig
