@@ -200,7 +200,7 @@ def render_teach_lab_scoring(
     sorted_scores = scores.sort_values("consensus_score", ascending=False) if "consensus_score" in scores.columns else scores
     st.dataframe(
         sorted_scores[display_columns].round(3),
-        use_container_width=True,
+        width="stretch",
         height=280,
         hide_index=True,
     )
