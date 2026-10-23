@@ -1,0 +1,95 @@
+{
+  "schema_version": "1.0",
+  "generated_by": "改进总控代理 / P1-05",
+  "protocol": "StratifiedKFold(5, shuffle, rs=42)，与 RF/GNN 复现同划分",
+  "n_rows": 13286,
+  "results": {
+    "Dummy (多数类)": {
+      "roc_auc": {
+        "mean": 0.5,
+        "std": 0.0
+      },
+      "balanced_accuracy": {
+        "mean": 0.5,
+        "std": 0.0
+      },
+      "mcc": {
+        "mean": 0.0,
+        "std": 0.0
+      },
+      "fit_seconds_total": 0.5
+    },
+    "Logistic (标准化)": {
+      "roc_auc": {
+        "mean": 0.7236585303110541,
+        "std": 0.009927156695587162
+      },
+      "balanced_accuracy": {
+        "mean": 0.6628443312506613,
+        "std": 0.006796137092616382
+      },
+      "mcc": {
+        "mean": 0.32591288676440355,
+        "std": 0.013570877359888739
+      },
+      "fit_seconds_total": 0.9
+    },
+    "GaussianNB": {
+      "roc_auc": {
+        "mean": 0.7224587318448636,
+        "std": 0.00358119294581507
+      },
+      "balanced_accuracy": {
+        "mean": 0.6569866663234977,
+        "std": 0.00734566532561714
+      },
+      "mcc": {
+        "mean": 0.3220446480264516,
+        "std": 0.015358151110354682
+      },
+      "fit_seconds_total": 0.3
+    },
+    "HistGradientBoosting": {
+      "roc_auc": {
+        "mean": 0.8490301005164607,
+        "std": 0.00669865031770289
+      },
+      "balanced_accuracy": {
+        "mean": 0.7656196665488972,
+        "std": 0.007537840700925144
+      },
+      "mcc": {
+        "mean": 0.5327393880676712,
+        "std": 0.015072230815483706
+      },
+      "fit_seconds_total": 21.1
+    },
+    "RF (同折重跑)": {
+      "roc_auc": {
+        "mean": 0.8679837881666135,
+        "std": 0.004950390952300648
+      },
+      "balanced_accuracy": {
+        "mean": 0.7844924270135377,
+        "std": 0.007247066301118018
+      },
+      "mcc": {
+        "mean": 0.5711502773271893,
+        "std": 0.014915402705632195
+      }
+    }
+  },
+  "references": {
+    "RF (legacy 复现, EXP-010b)": {
+      "roc_auc": 0.86798,
+      "balanced_accuracy": 0.78449,
+      "mcc": 0.57115
+    },
+    "GNN (legacy 复现, EXP-019)": {
+      "roc_auc": 0.85168,
+      "balanced_accuracy": 0.77141,
+      "mcc": 0.54631
+    }
+  },
+  "note": "GNN 数值引自 EXP-019（同数据同划分，逐折可比见 EXP-023）"
+}

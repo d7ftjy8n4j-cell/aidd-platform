@@ -1,0 +1,11 @@
+{
+  "generated_by": "改进总控代理 / P1-01 补遗",
+  "protocol": "teach_lab 协议（1,606 条，86.0% 正例）；特征为 legacy 12 描述符（保证可比，与教学 DESCRIPTOR_NAMES 的 F-12 差异如实记录）",
+  "n": 1606,
+  "positive_rate": 0.8599003735990037,
+  "majority_baseline_accuracy": 0.8599003735990037,
+  "oof_accuracy": 0.8935242839352429,
+  "brier": 0.07910561005735534,
+  "ece_10bin": 0.02219237448213455,
+  "note": "不平衡任务下 ECE 对多数类桶敏感，解读需配合 BAcc（见 artifacts/rf_metrics.json 的 CV 结果）"
+}

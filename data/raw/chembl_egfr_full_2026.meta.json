@@ -1,0 +1,8 @@
+{
+  "created_utc": "2026-10-23T21:51:22.172980+00:00",
+  "query": "CHEMBL203 · IC50 · relation='=' · assay_type=B · Homo sapiens · nM",
+  "n_rows": 10203,
+  "sha256_csv": "22005ea86e30cbd0e3f697e613e3c23004d0e0ac92e124a3001b061497609109",
+  "fetch_seconds": 246.5,
+  "purpose": "P1-06 时序外推集（与 legacy 求补）"
+}

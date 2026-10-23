@@ -1,0 +1,49 @@
+{
+  "schema_version": "1.0",
+  "generated_by": "改进总控代理 / P1-06",
+  "caveat": "时间外推（同靶点 IC50，不同爬取时间），非跨靶点泛化；标签用固定阈值 7.0",
+  "findings": {
+    "snapshot_overlap": 1998,
+    "note": "2026-10 teach_lab top-2000 快照被 legacy 13,286 全覆盖——legacy 数据对当前 ChEMBL top 记录的覆盖率 100%"
+  },
+  "data": {
+    "legacy_csv_sha256": "8525319917e534b72a5cb3c440f23dee61379460082cb88a333948854a0e7dc4",
+    "external_source": "full_universe_2026",
+    "full_universe_csv_sha256": "22005ea86e30cbd0e3f697e613e3c23004d0e0ac92e124a3001b061497609109",
+    "legacy_n": 13286
+  },
+  "external_results": {
+    "n_external": 224,
+    "positive_rate_external": 0.6696428571428571,
+    "positive_rate_legacy": 0.5080535902453711,
+    "auc": 0.5331531531531531,
+    "balanced_accuracy": 0.5263963963963965,
+    "mcc": 0.050243451846116435,
+    "accuracy": 0.5491071428571429,
+    "brier": 0.2646890881789209,
+    "pic50_external_describe": {
+      "count": 224.0,
+      "mean": 7.709,
+      "std": 1.126,
+      "min": 4.808,
+      "25%": 6.869,
+      "50%": 7.45,
+      "75%": 8.66,
+      "max": 10.046
+    }
+  },
+  "feature_diagnostics": {
+    "unparsable_smiles": 0,
+    "zero_fill_counts": {},
+    "zero_fill_total": 0
+  },
+  "hparams": {
+    "n_estimators": 200,
+    "max_depth": 15,
+    "max_features": "sqrt",
+    "min_samples_leaf": 2,
+    "criterion": "gini",
+    "bootstrap": true,
+    "random_state": 42
+  }
+}

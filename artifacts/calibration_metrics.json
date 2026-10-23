@@ -1,0 +1,395 @@
+{
+  "schema_version": "1.0",
+  "generated_utc": "2026-10-23T21:21:45.355102+00:00",
+  "script": "scripts/calibration_analysis.py",
+  "generated_by": "改进总控代理 / P1-01",
+  "data": {
+    "csv": "data/raw/egfr_all_ic50_full.csv",
+    "csv_sha256": "8525319917e534b72a5cb3c440f23dee61379460082cb88a333948854a0e7dc4",
+    "n_rows": 13286,
+    "labeling": "median_split (pIC50 >= 7.0000)",
+    "positive_rate": 0.5080535902453711
+  },
+  "features": {
+    "names": [
+      "MolWt",
+      "NumHAcceptors",
+      "NumHDonors",
+      "NumRotatableBonds",
+      "RingCount",
+      "FractionCSP3",
+      "HeavyAtomCount",
+      "NumHeteroatoms",
+      "NumSaturatedRings",
+      "NumAromaticRings",
+      "TPSA",
+      "MolLogP"
+    ],
+    "diagnostics": {
+      "unparsable_smiles": 0,
+      "zero_fill_counts": {},
+      "zero_fill_total": 0
+    }
+  },
+  "hparams": {
+    "n_estimators": 200,
+    "max_depth": 15,
+    "max_features": "sqrt",
+    "min_samples_leaf": 2,
+    "criterion": "gini",
+    "bootstrap": true,
+    "random_state": 42
+  },
+  "protocol": {
+    "oof": "StratifiedKFold(5, shuffle=True, random_state=42)，与 EXP-010b 同划分",
+    "calibration": "Platt / Isotonic，2 折交叉拟合（一半拟合一半评估，轮换）",
+    "n_bins": 10
+  },
+  "repro_model": {
+    "oof_auc": 0.8680018359853121,
+    "raw": {
+      "n": 13286,
+      "brier": 0.15158829077541625,
+      "ece_10bin": 0.052947644860606394,
+      "mce_10bin": 0.09874651214196012,
+      "mean_predicted": 0.5124104865090869,
+      "positive_rate": 0.5080535902453711,
+      "bins": [
+        {
+          "bin_low": 0.0,
+          "bin_high": 0.1,
+          "n": 1224,
+          "mean_predicted": 0.04516801354112196,
+          "fraction_positive": 0.03676470588235294
+        },
+        {
+          "bin_low": 0.1,
+          "bin_high": 0.2,
+          "n": 985,
+          "mean_predicted": 0.14950146725050958,
+          "fraction_positive": 0.083248730964467
+        },
+        {
+          "bin_low": 0.2,
+          "bin_high": 0.30000000000000004,
+          "n": 1175,
+          "mean_predicted": 0.2495047255690361,
+          "fraction_positive": 0.15319148936170213
+        },
+        {
+          "bin_low": 0.30000000000000004,
+          "bin_high": 0.4,
+          "n": 1347,
+          "mean_predicted": 0.34967450026371216,
+          "fraction_positive": 0.25092798812175204
+        },
+        {
+          "bin_low": 0.4,
+          "bin_high": 0.5,
+          "n": 1340,
+          "mean_predicted": 0.44979692088777484,
+          "fraction_positive": 0.41044776119402987
+        },
+        {
+          "bin_low": 0.5,
+          "bin_high": 0.6000000000000001,
+          "n": 1433,
+          "mean_predicted": 0.5507480771000224,
+          "fraction_positive": 0.5464061409630147
+        },
+        {
+          "bin_low": 0.6000000000000001,
+          "bin_high": 0.7000000000000001,
+          "n": 1769,
+          "mean_predicted": 0.6530067294848017,
+          "fraction_positive": 0.6930469191633691
+        },
+        {
+          "bin_low": 0.7000000000000001,
+          "bin_high": 0.8,
+          "n": 1993,
+          "mean_predicted": 0.7488629484922722,
+          "fraction_positive": 0.8173607626693427
+        },
+        {
+          "bin_low": 0.8,
+          "bin_high": 0.9,
+          "n": 1075,
+          "mean_predicted": 0.839865467507543,
+          "fraction_positive": 0.9283720930232559
+        },
+        {
+          "bin_low": 0.9,
+          "bin_high": 1.0,
+          "n": 945,
+          "mean_predicted": 0.9510090144936882,
+          "fraction_positive": 0.9724867724867725
+        }
+      ]
+    },
+    "platt_calibrated": {
+      "n": 13286,
+      "brier": 0.1479727451347403,
+      "ece_10bin": 0.01665853335859578,
+      "mce_10bin": 0.03723556877557538,
+      "mean_predicted": 0.5081020506119355,
+      "positive_rate": 0.5080535902453711,
+      "bins": [
+        {
+          "bin_low": 0.0,
+          "bin_high": 0.1,
+          "n": 2040,
+          "mean_predicted": 0.05734806588632486,
+          "fraction_positive": 0.05196078431372549
+        },
+        {
+          "bin_low": 0.1,
+          "bin_high": 0.2,
+          "n": 1417,
+          "mean_predicted": 0.1463519468416074,
+          "fraction_positive": 0.15384615384615385
+        },
+        {
+          "bin_low": 0.2,
+          "bin_high": 0.30000000000000004,
+          "n": 1072,
+          "mean_predicted": 0.24675913130921412,
+          "fraction_positive": 0.2332089552238806
+        },
+        {
+          "bin_low": 0.30000000000000004,
+          "bin_high": 0.4,
+          "n": 910,
+          "mean_predicted": 0.34847871693871035,
+          "fraction_positive": 0.38571428571428573
+        },
+        {
+          "bin_low": 0.4,
+          "bin_high": 0.5,
+          "n": 820,
+          "mean_predicted": 0.4491526086459573,
+          "fraction_positive": 0.44634146341463415
+        },
+        {
+          "bin_low": 0.5,
+          "bin_high": 0.6000000000000001,
+          "n": 863,
+          "mean_predicted": 0.5496418027879069,
+          "fraction_positive": 0.544611819235226
+        },
+        {
+          "bin_low": 0.6000000000000001,
+          "bin_high": 0.7000000000000001,
+          "n": 1044,
+          "mean_predicted": 0.6523814256012633,
+          "fraction_positive": 0.6197318007662835
+        },
+        {
+          "bin_low": 0.7000000000000001,
+          "bin_high": 0.8,
+          "n": 1565,
+          "mean_predicted": 0.7538252350934769,
+          "fraction_positive": 0.7252396166134185
+        },
+        {
+          "bin_low": 0.8,
+          "bin_high": 0.9,
+          "n": 2199,
+          "mean_predicted": 0.8505930284993302,
+          "fraction_positive": 0.8635743519781719
+        },
+        {
+          "bin_low": 0.9,
+          "bin_high": 1.0,
+          "n": 1356,
+          "mean_predicted": 0.9371009397899147,
+          "fraction_positive": 0.9646017699115044
+        }
+      ]
+    },
+    "isotonic_calibrated": {
+      "n": 13286,
+      "brier": 0.1478572520061388,
+      "ece_10bin": 0.005709613230920602,
+      "mce_10bin": 0.01496667171619298,
+      "mean_predicted": 0.5077952536331501,
+      "positive_rate": 0.5080535902453711,
+      "bins": [
+        {
+          "bin_low": 0.0,
+          "bin_high": 0.1,
+          "n": 2064,
+          "mean_predicted": 0.05082914509862446,
+          "fraction_positive": 0.05426356589147287
+        },
+        {
+          "bin_low": 0.1,
+          "bin_high": 0.2,
+          "n": 1681,
+          "mean_predicted": 0.15633360806752847,
+          "fraction_positive": 0.1635930993456276
+        },
+        {
+          "bin_low": 0.2,
+          "bin_high": 0.30000000000000004,
+          "n": 621,
+          "mean_predicted": 0.2383373240649512,
+          "fraction_positive": 0.22705314009661837
+        },
+        {
+          "bin_low": 0.30000000000000004,
+          "bin_high": 0.4,
+          "n": 1405,
+          "mean_predicted": 0.3731794352286081,
+          "fraction_positive": 0.3807829181494662
+        },
+        {
+          "bin_low": 0.4,
+          "bin_high": 0.5,
+          "n": 346,
+          "mean_predicted": 0.4716140705601236,
+          "fraction_positive": 0.45664739884393063
+        },
+        {
+          "bin_low": 0.5,
+          "bin_high": 0.6000000000000001,
+          "n": 1260,
+          "mean_predicted": 0.5441858462525809,
+          "fraction_positive": 0.5388888888888889
+        },
+        {
+          "bin_low": 0.6000000000000001,
+          "bin_high": 0.7000000000000001,
+          "n": 1105,
+          "mean_predicted": 0.6527870154305343,
+          "fraction_positive": 0.6615384615384615
+        },
+        {
+          "bin_low": 0.7000000000000001,
+          "bin_high": 0.8,
+          "n": 1527,
+          "mean_predicted": 0.7452034935067885,
+          "fraction_positive": 0.7426326129666012
+        },
+        {
+          "bin_low": 0.8,
+          "bin_high": 0.9,
+          "n": 1336,
+          "mean_predicted": 0.8575429723546906,
+          "fraction_positive": 0.8502994011976048
+        },
+        {
+          "bin_low": 0.9,
+          "bin_high": 1.0,
+          "n": 1941,
+          "mean_predicted": 0.9545335249824318,
+          "fraction_positive": 0.9526017516743946
+        }
+      ]
+    },
+    "platt_params_crossfit": [
+      {
+        "platt": {
+          "a": 6.701340265998379,
+          "b": -3.444814107693283
+        }
+      },
+      {
+        "platt": {
+          "a": 6.572164394518436,
+          "b": -3.375554198427201
+        }
+      }
+    ]
+  },
+  "deployed_pkl_diagnostic": {
+    "n": 13286,
+    "brier": 0.10410930070467317,
+    "ece_10bin": 0.12570251900040025,
+    "mce_10bin": 0.23057096617115225,
+    "mean_predicted": 0.5100741044585798,
+    "positive_rate": 0.5080535902453711,
+    "bins": [
+      {
+        "bin_low": 0.0,
+        "bin_high": 0.1,
+        "n": 1542,
+        "mean_predicted": 0.045024127832628456,
+        "fraction_positive": 0.005836575875486381
+      },
+      {
+        "bin_low": 0.1,
+        "bin_high": 0.2,
+        "n": 1178,
+        "mean_predicted": 0.14979535646351166,
+        "fraction_positive": 0.011884550084889643
+      },
+      {
+        "bin_low": 0.2,
+        "bin_high": 0.30000000000000004,
+        "n": 1270,
+        "mean_predicted": 0.24915376215553942,
+        "fraction_positive": 0.03858267716535433
+      },
+      {
+        "bin_low": 0.30000000000000004,
+        "bin_high": 0.4,
+        "n": 1042,
+        "mean_predicted": 0.35053257845522134,
+        "fraction_positive": 0.1199616122840691
+      },
+      {
+        "bin_low": 0.4,
+        "bin_high": 0.5,
+        "n": 1035,
+        "mean_predicted": 0.45014275354415356,
+        "fraction_positive": 0.336231884057971
+      },
+      {
+        "bin_low": 0.5,
+        "bin_high": 0.6000000000000001,
+        "n": 1130,
+        "mean_predicted": 0.5516362183188288,
+        "fraction_positive": 0.5849557522123894
+      },
+      {
+        "bin_low": 0.6000000000000001,
+        "bin_high": 0.7000000000000001,
+        "n": 1595,
+        "mean_predicted": 0.653376788848598,
+        "fraction_positive": 0.7642633228840126
+      },
+      {
+        "bin_low": 0.7000000000000001,
+        "bin_high": 0.8,
+        "n": 1999,
+        "mean_predicted": 0.7519038221279586,
+        "fraction_positive": 0.935967983991996
+      },
+      {
+        "bin_low": 0.8,
+        "bin_high": 0.9,
+        "n": 1430,
+        "mean_predicted": 0.8404795245088624,
+        "fraction_positive": 0.9755244755244755
+      },
+      {
+        "bin_low": 0.9,
+        "bin_high": 1.0,
+        "n": 1065,
+        "mean_predicted": 0.9511305885478255,
+        "fraction_positive": 0.9943661971830986
+      }
+    ],
+    "auc_on_dataset_a": 0.9542843057255541,
+    "caveat": "无法重跑 pkl 的训练划分，评估集与其训练数据可能重叠；本块仅诊断 UI 概率分布语义，不作为科研口径。",
+    "probability_quantiles": {
+      "q05": 0.035222240678353424,
+      "q25": 0.24455547419319915,
+      "q50": 0.5538369848113412,
+      "q75": 0.7615064654656212,
+      "q95": 0.9469854386084225
+    }
+  },
+  "runtime_seconds": 13.01
+}

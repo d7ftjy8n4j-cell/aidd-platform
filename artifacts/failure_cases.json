@@ -1,0 +1,447 @@
+{
+  "schema_version": "1.0",
+  "generated_by": "改进总控代理 / P1-03",
+  "protocol": "5-fold OOF（同 EXP-010b 划分），median split",
+  "confusion": {
+    "tn": 4876,
+    "fp": 1660,
+    "fn": 1195,
+    "tp": 5555
+  },
+  "error_rates": {
+    "fp_rate": 0.12494354960108385,
+    "fn_rate": 0.08994430227306939
+  },
+  "band_attribution": [
+    {
+      "band": "[5.0, 6.0)",
+      "n": 2411,
+      "fp_rate": 0.1995022812111157,
+      "fn_rate": 0.0,
+      "acc": 0.8004977187888843
+    },
+    {
+      "band": "[6.0, 6.5)",
+      "n": 1580,
+      "fp_rate": 0.36265822784810126,
+      "fn_rate": 0.0,
+      "acc": 0.6373417721518987
+    },
+    {
+      "band": "[6.5, 7.0)",
+      "n": 1043,
+      "fp_rate": 0.45254074784276127,
+      "fn_rate": 0.0,
+      "acc": 0.5474592521572388
+    },
+    {
+      "band": "[7.0, 7.5)",
+      "n": 2239,
+      "fp_rate": 0.0,
+      "fn_rate": 0.2286735149620366,
+      "acc": 0.7713264850379634
+    },
+    {
+      "band": "[7.5, 8.0)",
+      "n": 1210,
+      "fp_rate": 0.0,
+      "fn_rate": 0.22231404958677686,
+      "acc": 0.7776859504132232
+    },
+    {
+      "band": "[8.0, 12.0)",
+      "n": 3300,
+      "fp_rate": 0.0,
+      "fn_rate": 0.12515151515151515,
+      "acc": 0.8748484848484849
+    }
+  ],
+  "top_fp_cases": [
+    {
+      "smiles": "COc1ccnc2cccc([C@H](Nc3cc(Cl)c4ncc(C#N)c(NCC(C)(C)C)c4c3)C3=CN(C4(C(F)(F)F)CC4)NN3)c12",
+      "pIC50": 6.42,
+      "p_active": 0.9878,
+      "scaffold": "C1=C(C(Nc2ccc3ncccc3c2)c2cccc3ncccc23)NNN1C1CC1"
+    },
+    {
+      "smiles": "CC(C)(C)CNc1c(C#N)cnc2c(C#N)cc(N[C@H](C3=CN(C4(C(F)(F)F)CC4)NN3)c3cncc4ccccc34)cc12",
+      "pIC50": 6.848,
+      "p_active": 0.9833,
+      "scaffold": "C1=C(C(Nc2ccc3ncccc3c2)c2cncc3ccccc23)NNN1C1CC1"
+    },
+    {
+      "smiles": "CC(C)(C)CNc1c(C#N)cnc2c(C#N)cc(N[C@H](C3=CN(C45CC(C4)C5)NN3)c3cccc4nc(C(F)F)ccc34)cc12",
+      "pIC50": 6.315,
+      "p_active": 0.9792,
+      "scaffold": "C1=C(C(Nc2ccc3ncccc3c2)c2cccc3ncccc23)NNN1C12CC(C1)C2"
+    },
+    {
+      "smiles": "Cc1nc(F)ccc1[C@H](Nc1cc(Cl)c2ncc(C#N)c(NCC(C)(C)C)c2c1F)C1=CN(C2(C(F)F)CC2)NN1",
+      "pIC50": 5.016,
+      "p_active": 0.9767,
+      "scaffold": "C1=C(C(Nc2ccc3ncccc3c2)c2cccnc2)NNN1C1CC1"
+    },
+    {
+      "smiles": "Cc1nc(F)ccc1C(Nc1cc(Cl)c2ncc(C#N)c(NCC(C)(C)C)c2c1)C1=CN(C2(C(F)F)CC2)NN1",
+      "pIC50": 6.573,
+      "p_active": 0.9764,
+      "scaffold": "C1=C(C(Nc2ccc3ncccc3c2)c2cccnc2)NNN1C1CC1"
+    },
+    {
+      "smiles": "Cc1scnc1[C@H](Nc1cc(Cl)c2ncc(C#N)c(NCC(C)(C)C)c2c1)C1=CN(C2(C(F)F)CC2)NN1",
+      "pIC50": 6.991,
+      "p_active": 0.9711,
+      "scaffold": "C1=C(C(Nc2ccc3ncccc3c2)c2cscn2)NNN1C1CC1"
+    },
+    {
+      "smiles": "Cc1nc(F)ccc1[C@H](Nc1cc(Cl)c2ncc(C#N)c(N[C@@H]3CCOC3(C)C)c2c1)C1=CN(C2(C(F)F)CC2)NN1",
+      "pIC50": 6.701,
+      "p_active": 0.9708,
+      "scaffold": "C1=C(C(Nc2ccc3nccc(NC4CCOC4)c3c2)c2cccnc2)NNN1C1CC1"
+    },
+    {
+      "smiles": "COc1cc(N[C@H](C2=CN(C3(C(F)(F)F)CC3)NN2)c2ccc(F)nc2C)cc2c(NCC(C)(C)C)c(C#N)cnc12",
+      "pIC50": 6.68,
+      "p_active": 0.9633,
+      "scaffold": "C1=C(C(Nc2ccc3ncccc3c2)c2cccnc2)NNN1C1CC1"
+    },
+    {
+      "smiles": "Cc1nc(F)ccc1C(Nc1cc(C#CC(C)(C)O)c2ncc(C#N)c(NCC(C)(C)C)c2c1)C1=CN(C2(C(F)(F)F)CC2)NN1",
+      "pIC50": 6.0,
+      "p_active": 0.9613,
+      "scaffold": "C1=C(C(Nc2ccc3ncccc3c2)c2cccnc2)NNN1C1CC1"
+    },
+    {
+      "smiles": "CC(C)(C)CNc1c(C#N)cnc2c(C#N)cc(NC(C3=CN(C4CC4)NN3)c3cccc4ncsc34)cc12",
+      "pIC50": 6.947,
+      "p_active": 0.9572,
+      "scaffold": "C1=C(C(Nc2ccc3ncccc3c2)c2cccc3ncsc23)NNN1C1CC1"
+    },
+    {
+      "smiles": "Cc1nc(F)ccc1C(Nc1cc(Cl)c2ncc(C#N)c(N[C@H](CCC#N)c3ccccc3)c2c1)C1=CN(C2CC2)NN1",
+      "pIC50": 6.325,
+      "p_active": 0.9543,
+      "scaffold": "C1=C(C(Nc2ccc3nccc(NCc4ccccc4)c3c2)c2cccnc2)NNN1C1CC1"
+    },
+    {
+      "smiles": "Cc1cc(N[C@H](C2=CN(C3CC3)NN2)c2cccc3ncsc23)cc2c(NOC(C)(C)C)c(C#N)cnc12",
+      "pIC50": 6.502,
+      "p_active": 0.9386,
+      "scaffold": "C1=C(C(Nc2ccc3ncccc3c2)c2cccc3ncsc23)NNN1C1CC1"
+    },
+    {
+      "smiles": "Cc1nc(F)ccc1[C@H](Nc1cc(Cl)c2ncc(C#N)c(NCC(C)(C)C)c2c1Br)C1=C(F)N(C2(C(F)F)CC2)NN1",
+      "pIC50": 5.91,
+      "p_active": 0.9373,
+      "scaffold": "C1=C(C(Nc2ccc3ncccc3c2)c2cccnc2)NNN1C1CC1"
+    },
+    {
+      "smiles": "O=C(/C=C/CN1CC2(CCOCC2)C1)Nc1cc2c(Nc3ccc(F)c(Cl)c3)ncnc2s1",
+      "pIC50": 5.666,
+      "p_active": 0.9256,
+      "scaffold": "O=C(C=CCN1CC2(CCOCC2)C1)Nc1cc2c(Nc3ccccc3)ncnc2s1"
+    },
+    {
+      "smiles": "Cn1cnc2c([C@H](Nc3cc(Cl)c4ncc(C#N)c(NCC(C)(C)C)c4c3)C3=CN(C4(C(F)(F)F)CC4)NN3)cccc21",
+      "pIC50": 6.91,
+      "p_active": 0.9241,
+      "scaffold": "C1=C(C(Nc2ccc3ncccc3c2)c2cccc3[nH]cnc23)NNN1C1CC1"
+    }
+  ],
+  "top_fn_cases": [
+    {
+      "smiles": "N#CC(C#N)=C(N)/C(C#N)=C/c1ccc(O)cc1",
+      "pIC50": 7.0,
+      "p_active": 0.0033,
+      "scaffold": "c1ccccc1"
+    },
+    {
+      "smiles": "O=C(O)c1cc(NCc2cc(O)ccc2O)ccc1O",
+      "pIC50": 7.523,
+      "p_active": 0.0115,
+      "scaffold": "c1ccc(CNc2ccccc2)cc1"
+    },
+    {
+      "smiles": "O=C(O)c1ccc(S(=O)(=O)Oc2ccc(/C=C/[N+](=O)[O-])cc2)cc1O",
+      "pIC50": 7.301,
+      "p_active": 0.0169,
+      "scaffold": "O=S(=O)(Oc1ccccc1)c1ccccc1"
+    },
+    {
+      "smiles": "Cc1ccc(C2=NN(c3nc(-c4ccc(Cl)cc4)cs3)C(c3ccc(F)cc3)C2)cc1C",
+      "pIC50": 7.222,
+      "p_active": 0.019,
+      "scaffold": "c1ccc(C2=NN(c3nc(-c4ccccc4)cs3)C(c3ccccc3)C2)cc1"
+    },
+    {
+      "smiles": "Cc1ccc(Br)c2c(C#N)cc(C(=O)C3CC3)n12",
+      "pIC50": 7.071,
+      "p_active": 0.0192,
+      "scaffold": "O=C(c1ccc2ccccn12)C1CC1"
+    },
+    {
+      "smiles": "CCN(CC)CCNC(=O)c1c(C)[nH]c(/C=C2\\C(=O)Nc3ccc(F)cc32)c1C",
+      "pIC50": 7.498,
+      "p_active": 0.0232,
+      "scaffold": "O=C1Nc2ccccc2C1=Cc1ccc[nH]1"
+    },
+    {
+      "smiles": "O=C(NS(=O)(=O)c1ccc(Cl)cc1)c1cncc(Br)c1",
+      "pIC50": 7.046,
+      "p_active": 0.0284,
+      "scaffold": "O=C(NS(=O)(=O)c1ccccc1)c1cccnc1"
+    },
+    {
+      "smiles": "COc1cc(-c2nn(C3CCCC3)c3ncnc(N)c23)ccc1N",
+      "pIC50": 7.076,
+      "p_active": 0.0297,
+      "scaffold": "c1ccc(-c2nn(C3CCCC3)c3ncncc23)cc1"
+    },
+    {
+      "smiles": "C=CC(=O)N1CC[C@@H](Nc2nnc(C(N)=O)c(Nc3ccc(C(=O)N4CCOCC4)cc3)n2)C1",
+      "pIC50": 7.26,
+      "p_active": 0.0316,
+      "scaffold": "O=C(c1ccc(Nc2cnnc(NC3CCNC3)n2)cc1)N1CCOCC1"
+    },
+    {
+      "smiles": "CNC(=O)c1cnc(Nc2ccnc(N3CC[C@@H](O)[C@@H](F)C3)n2)cc1NC(C)C",
+      "pIC50": 7.004,
+      "p_active": 0.0364,
+      "scaffold": "c1ccc(Nc2ccnc(N3CCCCC3)n2)nc1"
+    },
+    {
+      "smiles": "N#C/C(=C\\c1ccc(O)c(O)c1)C(=O)NCc1ccccc1",
+      "pIC50": 7.0,
+      "p_active": 0.0392,
+      "scaffold": "O=C(C=Cc1ccccc1)NCc1ccccc1"
+    },
+    {
+      "smiles": "Cc1ccc(C2=NN(c3ccccc3)C(c3ccc4ccccc4c3)C2)cc1",
+      "pIC50": 7.222,
+      "p_active": 0.0405,
+      "scaffold": "c1ccc(C2=NN(c3ccccc3)C(c3ccc4ccccc4c3)C2)cc1"
+    },
+    {
+      "smiles": "Nc1ncnc2c1c(-c1cccc(O)c1)cn2C1CCCC1",
+      "pIC50": 7.097,
+      "p_active": 0.0422,
+      "scaffold": "c1ccc(-c2cn(C3CCCC3)c3ncncc23)cc1"
+    },
+    {
+      "smiles": "c1ccc(CNc2ncnc3ncccc23)cc1",
+      "pIC50": 8.0,
+      "p_active": 0.0428,
+      "scaffold": "c1ccc(CNc2ncnc3ncccc23)cc1"
+    },
+    {
+      "smiles": "COc1ccc(NC(=O)c2ccc(N(CCCl)CCCl)cc2)cc1",
+      "pIC50": 7.097,
+      "p_active": 0.0454,
+      "scaffold": "O=C(Nc1ccccc1)c1ccccc1"
+    }
+  ],
+  "attribution": {
+    "fp_pIC50_median": 6.067,
+    "fn_pIC50_median": 7.638,
+    "fp_desc_IQR": {
+      "MolWt": [
+        453.82,
+        557.61
+      ],
+      "NumHAcceptors": [
+        6.0,
+        9.0
+      ],
+      "NumHDonors": [
+        2.0,
+        3.0
+      ],
+      "NumRotatableBonds": [
+        6.0,
+        10.0
+      ],
+      "RingCount": [
+        4.0,
+        5.0
+      ],
+      "FractionCSP3": [
+        0.18,
+        0.32
+      ],
+      "HeavyAtomCount": [
+        32.0,
+        40.0
+      ],
+      "NumHeteroatoms": [
+        8.0,
+        11.0
+      ],
+      "NumSaturatedRings": [
+        0.0,
+        1.0
+      ],
+      "NumAromaticRings": [
+        3.0,
+        4.0
+      ],
+      "TPSA": [
+        81.05,
+        112.42
+      ],
+      "MolLogP": [
+        3.95,
+        5.52
+      ]
+    },
+    "fn_desc_IQR": {
+      "MolWt": [
+        366.32,
+        483.47
+      ],
+      "NumHAcceptors": [
+        5.0,
+        7.0
+      ],
+      "NumHDonors": [
+        1.0,
+        2.0
+      ],
+      "NumRotatableBonds": [
+        4.0,
+        7.0
+      ],
+      "RingCount": [
+        3.0,
+        5.0
+      ],
+      "FractionCSP3": [
+        0.1,
+        0.27
+      ],
+      "HeavyAtomCount": [
+        26.0,
+        35.0
+      ],
+      "NumHeteroatoms": [
+        6.0,
+        10.0
+      ],
+      "NumSaturatedRings": [
+        0.0,
+        1.0
+      ],
+      "NumAromaticRings": [
+        3.0,
+        4.0
+      ],
+      "TPSA": [
+        66.91,
+        104.5
+      ],
+      "MolLogP": [
+        3.52,
+        5.26
+      ]
+    },
+    "correct_desc_IQR": {
+      "MolWt": [
+        397.34,
+        554.97
+      ],
+      "NumHAcceptors": [
+        6.0,
+        9.0
+      ],
+      "NumHDonors": [
+        1.0,
+        3.0
+      ],
+      "NumRotatableBonds": [
+        5.0,
+        9.0
+      ],
+      "RingCount": [
+        4.0,
+        5.0
+      ],
+      "FractionCSP3": [
+        0.14,
+        0.32
+      ],
+      "HeavyAtomCount": [
+        28.0,
+        39.0
+      ],
+      "NumHeteroatoms": [
+        7.0,
+        11.0
+      ],
+      "NumSaturatedRings": [
+        0.0,
+        1.0
+      ],
+      "NumAromaticRings": [
+        3.0,
+        4.0
+      ],
+      "TPSA": [
+        76.14,
+        110.77
+      ],
+      "MolLogP": [
+        3.65,
+        5.57
+      ]
+    },
+    "fp_scaffold_enrichment": [
+      {
+        "scaffold": "c1ccc(Nc2ncnc3ccccc23)cc1",
+        "fp_count": 95,
+        "total": 695,
+        "fp_share": 0.1366906474820144
+      },
+      {
+        "scaffold": "c1ccc(Nc2nccc(-c3c[nH]c4ccccc34)n2)cc1",
+        "fp_count": 37,
+        "total": 128,
+        "fp_share": 0.2890625
+      },
+      {
+        "scaffold": "c1ccc(Nc2ccnc(Nc3ccccc3)n2)cc1",
+        "fp_count": 28,
+        "total": 148,
+        "fp_share": 0.1891891891891892
+      },
+      {
+        "scaffold": "c1ccc(Oc2ccnc(Nc3ccc(N4CCNCC4)cc3)n2)cc1",
+        "fp_count": 22,
+        "total": 57,
+        "fp_share": 0.38596491228070173
+      },
+      {
+        "scaffold": "c1ccc(Nc2ncnc3cc(OC4CCOC4)ccc23)cc1",
+        "fp_count": 15,
+        "total": 33,
+        "fp_share": 0.45454545454545453
+      },
+      {
+        "scaffold": "c1ccc(COc2ccc(Nc3ccnc4ccccc34)cc2)cc1",
+        "fp_count": 9,
+        "total": 32,
+        "fp_share": 0.28125
+      },
+      {
+        "scaffold": "c1ccc(Nc2ncnc3cc(OCC4CCNCC4)ccc23)cc1",
+        "fp_count": 9,
+        "total": 24,
+        "fp_share": 0.375
+      },
+      {
+        "scaffold": "c1ccc(Nc2ccnc3ccccc23)cc1",
+        "fp_count": 9,
+        "total": 100,
+        "fp_share": 0.09
+      }
+    ]
+  }
+}

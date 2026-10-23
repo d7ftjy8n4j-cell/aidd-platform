@@ -1,0 +1,136 @@
+{
+  "schema_version": "1.0",
+  "generated_by": "改进总控代理 / P1-04",
+  "protocol": "StratifiedKFold(5, shuffle, rs=42)，legacy 超参为基线",
+  "results": {
+    "n_estimators=25": {
+      "roc_auc": 0.8616,
+      "roc_auc_std": 0.0091,
+      "bacc": 0.7802
+    },
+    "n_estimators=50": {
+      "roc_auc": 0.865,
+      "roc_auc_std": 0.0073,
+      "bacc": 0.7808
+    },
+    "n_estimators=100": {
+      "roc_auc": 0.8669,
+      "roc_auc_std": 0.0055,
+      "bacc": 0.7832
+    },
+    "n_estimators=200": {
+      "roc_auc": 0.868,
+      "roc_auc_std": 0.005,
+      "bacc": 0.7845
+    },
+    "max_depth=5": {
+      "roc_auc": 0.7663,
+      "roc_auc_std": 0.0059,
+      "bacc": 0.6908
+    },
+    "max_depth=10": {
+      "roc_auc": 0.8325,
+      "roc_auc_std": 0.0066,
+      "bacc": 0.7468
+    },
+    "max_depth=15": {
+      "roc_auc": 0.868,
+      "roc_auc_std": 0.005,
+      "bacc": 0.7845
+    },
+    "max_depth=20": {
+      "roc_auc": 0.876,
+      "roc_auc_std": 0.004,
+      "bacc": 0.7925
+    },
+    "max_depth=None": {
+      "roc_auc": 0.8764,
+      "roc_auc_std": 0.0033,
+      "bacc": 0.7918
+    },
+    "leave_out_MolWt": {
+      "roc_auc": 0.8701,
+      "roc_auc_std": 0.0051,
+      "bacc": 0.7861
+    },
+    "leave_out_NumHAcceptors": {
+      "roc_auc": 0.8631,
+      "roc_auc_std": 0.0063,
+      "bacc": 0.782
+    },
+    "leave_out_NumHDonors": {
+      "roc_auc": 0.861,
+      "roc_auc_std": 0.0053,
+      "bacc": 0.7757
+    },
+    "leave_out_NumRotatableBonds": {
+      "roc_auc": 0.8605,
+      "roc_auc_std": 0.0037,
+      "bacc": 0.7745
+    },
+    "leave_out_RingCount": {
+      "roc_auc": 0.866,
+      "roc_auc_std": 0.0055,
+      "bacc": 0.7809
+    },
+    "leave_out_FractionCSP3": {
+      "roc_auc": 0.8615,
+      "roc_auc_std": 0.0059,
+      "bacc": 0.7769
+    },
+    "leave_out_HeavyAtomCount": {
+      "roc_auc": 0.8676,
+      "roc_auc_std": 0.004,
+      "bacc": 0.7853
+    },
+    "leave_out_NumHeteroatoms": {
+      "roc_auc": 0.8678,
+      "roc_auc_std": 0.0046,
+      "bacc": 0.7837
+    },
+    "leave_out_NumSaturatedRings": {
+      "roc_auc": 0.8667,
+      "roc_auc_std": 0.0053,
+      "bacc": 0.7831
+    },
+    "leave_out_NumAromaticRings": {
+      "roc_auc": 0.8632,
+      "roc_auc_std": 0.0057,
+      "bacc": 0.7793
+    },
+    "leave_out_TPSA": {
+      "roc_auc": 0.8569,
+      "roc_auc_std": 0.0038,
+      "bacc": 0.7738
+    },
+    "leave_out_MolLogP": {
+      "roc_auc": 0.8667,
+      "roc_auc_std": 0.0061,
+      "bacc": 0.7812
+    },
+    "top5_only": {
+      "roc_auc": 0.8305,
+      "roc_auc_std": 0.0073,
+      "bacc": 0.7501
+    },
+    "_baseline_full": {
+      "roc_auc": 0.868,
+      "roc_auc_std": 0.005,
+      "bacc": 0.7845
+    }
+  },
+  "feature_names": [
+    "MolWt",
+    "NumHAcceptors",
+    "NumHDonors",
+    "NumRotatableBonds",
+    "RingCount",
+    "FractionCSP3",
+    "HeavyAtomCount",
+    "NumHeteroatoms",
+    "NumSaturatedRings",
+    "NumAromaticRings",
+    "TPSA",
+    "MolLogP"
+  ]
+}
