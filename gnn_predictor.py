@@ -20,6 +20,9 @@ import logging
 import os
 import time
 
+# 模型 CV 指标单一事实源（复现产物，详见 model_registry.py 头注释）
+import model_registry
+
 # 配置日志
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -232,8 +235,9 @@ class GCNPredictor:
                 "confidence": confidence,
                 "confidence_score": confidence_score,
                 "model_type": "GCN (图卷积网络)",
-                "model_auc": 0.8081,
-                "model_accuracy": 0.7652,
+                "predictor_tier": "real_gnn",
+                "model_auc": model_registry.GNN_PERF["auc"],
+                "model_accuracy": model_registry.GNN_PERF["accuracy"],
                 "timestamp": np.datetime64('now'),
             }
 

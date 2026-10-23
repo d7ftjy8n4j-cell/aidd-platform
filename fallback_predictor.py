@@ -1,18 +1,25 @@
 """
 备用预测器 - 当模型文件无法加载时使用
-基于SMILES字符串分析的简单EGFR抑制剂预测
-完全不依赖RDKit
+基于SMILES字符串分析的确定性 EGFR 抑制剂规则打分
+完全不依赖 RDKit（增强版在 RDKit 可用时启用）
+
+P0-03 诚实性约定：本层是**确定性规则基线，不是机器学习模型**；
+禁止使用 hash()/随机数制造概率（历史缺陷 F-08/F-09，已移除）。
 """
 import numpy as np
 
+from minimal_predictor import TIER_FALLBACK
+
+
 class FallbackEGFRPredictor:
     """
-    基于SMILES字符串分析的EGFR抑制剂预测器
-    当主模型加载失败时作为备用
+    基于 SMILES 字符串分析的确定性规则打分器
+    当主模型加载失败时作为备用，结果必带 predictor_tier 标签
     """
-    
+
     def __init__(self):
-        print("⚠️ 使用备用预测器（基于SMILES分析）")
+        self.predictor_tier = TIER_FALLBACK
+        print("⚠️ 使用备用预测器（确定性规则基线，非机器学习模型）")
         self.feature_names = [
             "SMILES长度", "碳原子数", "氮原子数", "氧原子数", "硫原子数",
             "氟原子数", "氯原子数", "溴原子数", "双键数", "三键数",
@@ -122,11 +129,9 @@ class FallbackEGFRPredictor:
             # 7. 环数量
             if 2 <= features['rings'] <= 5:
                 score += 0.05
-            
-            # 添加随机性
-            np.random.seed(hash(smiles) % 2**32)
-            noise = np.random.normal(0, 0.08)
-            probability = np.clip(score + noise, 0.05, 0.95)
+
+            # 确定性输出（P0-03）：不再叠加任何随机噪声（历史缺陷 F-09）
+            probability = float(np.clip(score, 0.05, 0.95))
             
             # 预测类别
             pred_class = int(probability > 0.5)
@@ -170,10 +175,11 @@ class FallbackEGFRPredictor:
                 "prediction": pred_class,
                 "probability_active": float(probability),
                 "confidence": "高" if abs(probability-0.5) > 0.3 else "中" if abs(probability-0.5) > 0.15 else "低",
+                "predictor_tier": TIER_FALLBACK,
                 "explanation": explanation,
                 "features_used": self.feature_names,
                 "feature_values": feature_values,
-                "note": "使用备用预测器（基于SMILES分析，无RDKit）"
+                "note": "备用预测器：确定性 SMILES 规则基线（无 RDKit），非机器学习模型，不具科研效力"
             }
             
         except Exception as e:
@@ -186,10 +192,17 @@ try:
     from rdkit.Chem import Descriptors, rdMolDescriptors
     
     class FallbackEGFRPredictorWithRDKit(FallbackEGFRPredictor):
-        """带RDKit支持的增强版备用预测器"""
+        """带RDKit描述符的确定性规则基线"""
+
+        def __init__(self):
+            super().__init__()
+            self.predictor_tier = TIER_FALLBACK + "_rdkit"
         
         def predict(self, smiles):
             """使用RDKit进行更精确的预测"""
+            # RDKit 对空串会返回空分子对象而非 None，必须先显式拦截（P0-03 修复）
+            if not smiles or len(smiles) < 2:
+                return {"error": "无效的SMILES字符串"}
             mol = Chem.MolFromSmiles(smiles)
             if not mol:
                 # RDKit解析失败，回退到简单分析
@@ -225,11 +238,9 @@ try:
                 
                 if 2 <= n_aromatic_rings <= 4:
                     score += 0.20
-                
-                # 添加随机性
-                np.random.seed(hash(smiles) % 2**32)
-                noise = np.random.normal(0, 0.05)
-                probability = np.clip(score + noise, 0.05, 0.95)
+
+                # 确定性输出（P0-03）：不再叠加任何随机噪声（历史缺陷 F-09）
+                probability = float(np.clip(score, 0.05, 0.95))
                 
                 pred_class = int(probability > 0.5)
                 
@@ -265,10 +276,11 @@ try:
                     "prediction": pred_class,
                     "probability_active": float(probability),
                     "confidence": "高" if abs(probability-0.5) > 0.3 else "中" if abs(probability-0.5) > 0.15 else "低",
+                    "predictor_tier": self.predictor_tier,
                     "explanation": explanation,
                     "features_used": self.feature_names,
                     "feature_values": feature_values,
-                    "note": "使用备用预测器（基于RDKit规则）"
+                    "note": "备用预测器：确定性 RDKit 描述符规则基线，非机器学习模型，不具科研效力"
                 }
                 
             except Exception as e:

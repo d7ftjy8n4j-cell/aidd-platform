@@ -289,14 +289,27 @@ def _render_py3dmol(view, height=500, width=800):
     st.components.v1.html(html_str, height=height, width=width)
 
 # ========== 配置类 ==========
+import model_registry  # 模型性能指标单一事实源（artifacts/*.json 的可复现实测值）
+
+
 class Config:
     """集中管理系统配置"""
     PROBABILITY_THRESHOLD = 0.2
     MAX_SMILES_LENGTH = 1000
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
     LOG_FILE = os.path.join(BASE_DIR, "app.log")
-    RF_DEFAULT_PERF = {'auc': 0.8695, 'accuracy': 0.7856, 'feature_count': '200+'}
-    GNN_DEFAULT_PERF = {'auc': 0.8628, 'accuracy': 0.7842, 'node_features': '13维'}
+    # 性能数值出处：scripts/train_rf_legacy_protocol.py / train_gnn.py --dataset legacy
+    # 产物 artifacts/*_metrics.json，协议与对照详见 docs/MODEL_CARD.md，勿手改
+    RF_DEFAULT_PERF = {
+        'auc': model_registry.RF_PERF['auc'],
+        'accuracy': model_registry.RF_PERF['accuracy'],
+        'feature_count': f"{model_registry.RF_PERF['feature_count']} 个描述符（{model_registry.RF_PERF['n_trees']} 棵树）",
+    }
+    GNN_DEFAULT_PERF = {
+        'auc': model_registry.GNN_PERF['auc'],
+        'accuracy': model_registry.GNN_PERF['accuracy'],
+        'node_features': model_registry.GNN_PERF['node_features'],
+    }
     SMILES_PATTERN = r'^[A-Za-z0-9@+\-\[\]\(\)\\\/%=#$]+$'
     LOG_LEVEL = logging.INFO
 
@@ -377,40 +390,25 @@ def check_gnn_model_files():
 RF_PREDICTOR_AVAILABLE = True
 GNN_PREDICTOR_AVAILABLE = False
 
-class MinimalEGFRPredictor:
-    def __init__(self):
-        self.feature_names = ["SMILES长度", "碳原子数", "氮原子数", "氧原子数"]
-    
-    def predict(self, smiles):
-        length = len(smiles)
-        c_count = smiles.count('C')
-        n_count = smiles.count('N')
-        o_count = smiles.count('O')
-        score = 0.5
-        if 30 <= length <= 80:
-            score += 0.15
-        if n_count >= 2:
-            score += 0.15
-        if o_count >= 1:
-            score += 0.10
-        import random
-        random.seed(hash(smiles) % 2**32)
-        score += random.uniform(-0.1, 0.1)
-        probability = max(0.1, min(0.9, score))
-        return {
-            "success": True, "smiles": smiles,
-            "prediction": 1 if probability > 0.5 else 0,
-            "probability_active": probability,
-            "confidence": "中",
-            "explanation": {
-                "top_features": ["SMILES长度", "氮原子数", "氧原子数"],
-                "top_importance": [0.5, 0.3, 0.2],
-                "values": {"SMILES长度": length, "氮原子数": n_count, "氧原子数": o_count}
-            },
-            "features_used": self.feature_names,
-            "feature_values": [length, c_count, n_count, o_count],
-            "note": "使用最简预测器（部署兼容模式）"
-        }
+# 最简兜底预测器（P0-03 起为确定性启发式，独立模块、纯标准库、可单测）
+try:
+    from minimal_predictor import MinimalEGFRPredictor, TIER_REAL, TIER_FALLBACK, TIER_MINIMAL
+except Exception as _mp_exc:  # 极端环境：连标准库模块都不可加载时，显式失败而非造数
+    logging.error(f"minimal_predictor 导入失败: {_mp_exc}")
+
+    class MinimalEGFRPredictor:
+        """终端兜底：显式失败，绝不伪造预测。"""
+
+        predictor_tier = "unavailable"
+
+        def predict(self, smiles):
+            return {
+                "success": False,
+                "smiles": smiles,
+                "error": "所有预测器均不可用（minimal_predictor 模块加载失败）",
+                "predictor_tier": "unavailable",
+                "note": "预测服务不可用，请检查部署环境",
+            }
 
 # 导入随机森林预测器
 try:
@@ -521,7 +519,7 @@ def _build_comparison_row(result, model_type, perf):
             "活性概率": f"{result['probability_active']:.4f}",
             "置信度": result.get('confidence', '中'),
             "AUC": str(perf.get('auc', 'N/A')),
-            "原理": "基于200+个RDKit分子描述符"
+            "原理": f"基于{model_registry.RF_PERF['feature_count']}个RDKit分子描述符（{model_registry.RF_PERF['n_trees']}棵决策树）"
         }
     else:
         return {
@@ -561,6 +559,10 @@ def display_model_result(result, model_name, model_type):
         return
     precision = 3 if model_type == 'rf' else 4
     _display_metrics(result, perf, precision)
+    # P0-03：诚实显示预测来源层级——非真实模型时必须让学生看到
+    tier = result.get('predictor_tier')
+    if tier and tier not in (TIER_REAL, "real_gnn"):
+        st.warning(f"⚠️ **预测来源**：{result.get('note', tier)}")
     if model_type == 'rf':
         if result.get('explanation'):
             with st.expander(f"📊 {model_name}决策依据"):
@@ -570,8 +572,8 @@ def display_model_result(result, model_name, model_type):
     else:
         with st.expander(f"🧠 {model_name}详情"):
             st.write(f"**模型类型**: {result.get('model_type', 'GCN图卷积网络')}")
-            st.write(f"**测试集准确率**: {result.get('model_accuracy', 0.7652):.3f}")
-            st.write(f"**测试集AUC**: {result.get('model_auc', 0.8081):.3f}")
+            st.write(f"**测试集准确率**: {result.get('model_accuracy', model_registry.GNN_PERF['accuracy']):.3f}")
+            st.write(f"**测试集AUC**: {result.get('model_auc', model_registry.GNN_PERF['auc']):.3f}")
             st.write("**原理**: 将分子视为图结构（原子为节点，化学键为边），使用图卷积网络直接学习分子结构特征")
 
 def display_rf_result(result, model_name="随机森林"):
@@ -1259,7 +1261,7 @@ def page_model_and_system():
             "模型": ["随机森林", "GNN (GCN)"],
             "AUC": [f"{rf_perf.get('auc', 'N/A')}", f"{gnn_perf.get('auc', 'N/A')}"],
             "准确率": [f"{rf_perf.get('accuracy', 'N/A')}", f"{gnn_perf.get('accuracy', 'N/A')}"],
-            "特征": ["200+ RDKit 描述符", "13 维原子特征"],
+            "特征": [f"{model_registry.RF_PERF['feature_count']} 个 RDKit 描述符", "13 维原子特征"],
             "可解释性": ["⭐⭐⭐ 高", "⭐⭐ 中"],
         }
         st.table(pd.DataFrame(perf_data))
@@ -1273,7 +1275,7 @@ def page_model_and_system():
         st.markdown("""
         ```
         输入层 (SMILES)
-            ├── 随机森林分支 → RDKit特征提取 (200+描述符) → 预测结果
+            ├── 随机森林分支 → RDKit特征提取 (12个描述符) → 预测结果
             └── GNN分支 → 分子图转换 (13维原子特征) → 图卷积网络 → 预测结果
                          ↓
                     集成决策：加权平均 + 一致性判断
@@ -1463,7 +1465,7 @@ def page_home():
 
     st.markdown("""
     **双引擎预测系统** —— 集成传统机器学习与深度学习技术  
-    🧪 **标准模式**: 随机森林 + 200+ 分子描述符 + SHAP 可解释性  
+    🧪 **标准模式**: 随机森林 + 12 个分子描述符 + SHAP 可解释性
     🧠 **高级模式**: 图神经网络 (GCN) + 端到端分子图学习  
     📊 **对比分析**: 双模型一致性验证，提升预测可靠性
     """)

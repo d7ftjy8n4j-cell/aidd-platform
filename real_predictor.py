@@ -37,11 +37,15 @@ except ImportError:
 # 添加当前目录到路径，以便导入重建脚本
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+from minimal_predictor import TIER_REAL  # noqa: E402  # 层级标签（P0-03）
+
+
 class RealEGFRPredictor:
     def __init__(self):
         """直接从当前目录加载模型和特征"""
         self.model = None
         self.feature_names = []
+        self.predictor_tier = TIER_REAL
         
         try:
             # 获取当前文件所在目录，然后相对于它找到模型文件
@@ -94,90 +98,11 @@ class RealEGFRPredictor:
             import traceback
             traceback.print_exc()
             
-            # 尝试自动重建模型
-            print("\n🔄 尝试自动重建模型...")
-            try:
-                self._rebuild_model()
-            except Exception as rebuild_error:
-                print(f"❌ 模型重建失败: {rebuild_error}")
-                self.model = None
-                self.feature_names = []
-    
-    def _rebuild_model(self):
-        """在部署环境中重建兼容的模型"""
-        from sklearn.ensemble import RandomForestClassifier
-        
-        print("🛠️ 正在重建兼容的随机森林模型...")
-        
-        np.random.seed(42)
-        n_samples = 1000
-        n_features = len(self.feature_names) if self.feature_names else 16
-        
-        # 如果特征名称为空，使用默认特征
-        if not self.feature_names:
-            self.feature_names = [
-                "SMILES长度", "碳原子数", "氮原子数", "氧原子数", "硫原子数",
-                "氟原子数", "氯原子数", "溴原子数", "双键数", "三键数",
-                "分支开始", "分支结束", "环数", "芳香碳", "芳香氮", "芳香氧"
-            ]
-        
-        # 模拟训练数据
-        X = np.zeros((n_samples, n_features))
-        n_active = 500
-        
-        # 活性分子特征
-        X[:n_active, 0] = np.random.normal(45, 15, n_active)
-        X[:n_active, 1] = np.random.normal(20, 5, n_active)
-        X[:n_active, 2] = np.random.normal(4, 2, n_active)
-        X[:n_active, 3] = np.random.normal(3, 1.5, n_active)
-        X[:n_active, 4] = np.random.poisson(0.3, n_active)
-        X[:n_active, 5] = np.random.poisson(0.8, n_active)
-        X[:n_active, 6] = np.random.poisson(0.5, n_active)
-        X[:n_active, 7] = np.random.poisson(0.1, n_active)
-        X[:n_active, 8] = np.random.normal(4, 1.5, n_active)
-        X[:n_active, 9] = np.random.poisson(0.2, n_active)
-        X[:n_active, 10] = np.random.normal(6, 2, n_active)
-        X[:n_active, 11] = np.random.normal(6, 2, n_active)
-        X[:n_active, 12] = np.random.normal(3, 1, n_active)
-        X[:n_active, 13] = np.random.normal(12, 4, n_active)
-        X[:n_active, 14] = np.random.normal(2, 1, n_active)
-        X[:n_active, 15] = np.random.normal(1, 0.5, n_active)
-        
-        # 非活性分子特征
-        X[n_active:, 0] = np.random.normal(35, 20, n_active)
-        X[n_active:, 1] = np.random.normal(15, 8, n_active)
-        X[n_active:, 2] = np.random.normal(2, 1.5, n_active)
-        X[n_active:, 3] = np.random.normal(2, 1.5, n_active)
-        X[n_active:, 4] = np.random.poisson(0.2, n_active)
-        X[n_active:, 5] = np.random.poisson(0.3, n_active)
-        X[n_active:, 6] = np.random.poisson(0.2, n_active)
-        X[n_active:, 7] = np.random.poisson(0.05, n_active)
-        X[n_active:, 8] = np.random.normal(3, 2, n_active)
-        X[n_active:, 9] = np.random.poisson(0.1, n_active)
-        X[n_active:, 10] = np.random.normal(4, 2.5, n_active)
-        X[n_active:, 11] = np.random.normal(4, 2.5, n_active)
-        X[n_active:, 12] = np.random.normal(2, 1.2, n_active)
-        X[n_active:, 13] = np.random.normal(8, 5, n_active)
-        X[n_active:, 14] = np.random.normal(1, 0.8, n_active)
-        X[n_active:, 15] = np.random.normal(0.5, 0.5, n_active)
-        
-        X = np.abs(X)
-        y = np.array([1] * n_active + [0] * n_active)
-        
-        # 创建并训练模型
-        self.model = RandomForestClassifier(
-            n_estimators=100,
-            max_depth=10,
-            min_samples_split=5,
-            min_samples_leaf=2,
-            random_state=42,
-            n_jobs=-1
-        )
-        self.model.fit(X, y)
-        
-        print(f"✅ 模型重建成功！")
-        print(f"   模型类型: {type(self.model).__name__}")
-        print(f"   特征数量: {self.model.n_features_in_}")
+            # P0-03/F-15：不再用合成数据伪造模型（_rebuild_model 已删除）。
+            # model 保持 None，app.py 降级链会接管到确定性规则基线并在 UI 显式示警。
+            print("\n🚫 模型加载失败：已放弃伪造模型，降级链将使用确定性规则基线并显式示警。")
+            self.model = None
+            self.feature_names = []
     
     def smiles_to_features(self, smiles):
         """将SMILES转换为模型所需的特征向量"""
@@ -290,6 +215,7 @@ class RealEGFRPredictor:
                 "prediction": pred_class,  # 0=非活性, 1=活性
                 "probability_active": float(proba[1]),
                 "confidence": "高" if abs(proba[1]-0.5) > 0.3 else "中",
+                "predictor_tier": TIER_REAL,
                 "explanation": explanation,
                 "features_used": self.feature_names,
                 "feature_values": features[0].tolist()
