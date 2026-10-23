@@ -6,7 +6,8 @@ ipython_genutils==0.2.0
 py3Dmol>=2.0.4
 
 # ========== 数据处理 ==========
-pandas>=2.0.0
+# 实测本地环境 pandas 1.5.3 / numpy 1.26.4 全部 20 项单测通过，故下限取 1.5.3（兼容 2.x）
+pandas>=1.5.3
 numpy>=1.24,<2
 scikit-learn>=1.4.0
 umap-learn==0.5.5
