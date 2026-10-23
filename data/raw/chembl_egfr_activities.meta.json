@@ -1,0 +1,14 @@
+{
+  "created_utc": "2026-10-23T19:24:38.487012+00:00",
+  "target_name_requested": "EGFR",
+  "target_name_resolved": "Epidermal growth factor receptor",
+  "target_chembl_id": "CHEMBL203",
+  "activity_type": "IC50",
+  "max_records_requested": 2000,
+  "raw_count_reported": 10000,
+  "n_records": 1998,
+  "fetch_seconds": 99.13,
+  "sha256_csv": "79068a1ed591d3ee650101057d70c288424df38456d5702ded7c9fc4e479c70c",
+  "snapshot_path": "C:\\Users\\dadamingli\\Desktop\\my-egfr-v2\\data\\raw\\chembl_egfr_activities.csv",
+  "chembl_client_version": "0.10.9"
+}

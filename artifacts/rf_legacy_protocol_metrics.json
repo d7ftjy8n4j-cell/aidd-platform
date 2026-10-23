@@ -1,0 +1,294 @@
+{
+  "schema_version": "1.0",
+  "generated_utc": "2026-10-23T19:53:23.046376+00:00",
+  "script": "scripts/train_rf_legacy_protocol.py",
+  "generated_by": "改进总控代理 / P0-01b",
+  "purpose": "复现 README 声称的 RF 指标（median split 协议）",
+  "environment": {
+    "python": "3.11.15",
+    "platform": "Windows-10-10.0.26200-SP0",
+    "numpy": "1.26.4",
+    "pandas": "1.5.3"
+  },
+  "data": {
+    "csv": "data\\raw\\egfr_all_ic50_full.csv",
+    "csv_sha256": "8525319917e534b72a5cb3c440f23dee61379460082cb88a333948854a0e7dc4",
+    "n_rows": 13286,
+    "smiles_column": "SMILES",
+    "pic50_column": "pIC50",
+    "labeling": "median split: pIC50 >= 7.0000 -> active",
+    "threshold": 7.0,
+    "label_counts": {
+      "0": 6536,
+      "1": 6750
+    },
+    "positive_rate": 0.5080535902453711,
+    "imbalance_ratio": 1.0327417380660955,
+    "pic50_over_12_count": 1,
+    "pic50_describe": {
+      "count": 13286.0,
+      "mean": 6.802492236228349,
+      "std": 1.5064460072482866,
+      "min": 1.6020599913279625,
+      "25%": 5.606427462604493,
+      "50%": 7.0,
+      "75%": 7.981301886009886,
+      "max": 17.299988937677888
+    }
+  },
+  "features": {
+    "names": [
+      "MolWt",
+      "NumHAcceptors",
+      "NumHDonors",
+      "NumRotatableBonds",
+      "RingCount",
+      "FractionCSP3",
+      "HeavyAtomCount",
+      "NumHeteroatoms",
+      "NumSaturatedRings",
+      "NumAromaticRings",
+      "TPSA",
+      "MolLogP"
+    ],
+    "n_features": 12,
+    "computation": "replicated from real_predictor.smiles_to_features (silent zero-fill)",
+    "diagnostics": {
+      "unparsable_smiles": 0,
+      "zero_fill_counts": {},
+      "zero_fill_total": 0
+    },
+    "compute_seconds": 8.2
+  },
+  "hparams": {
+    "n_estimators": 200,
+    "max_depth": 15,
+    "max_features": "sqrt",
+    "min_samples_leaf": 2,
+    "criterion": "gini",
+    "bootstrap": true,
+    "random_state": 42
+  },
+  "protocol": {
+    "cv": "StratifiedKFold(n_splits=5, shuffle=True, random_state=42)",
+    "test": "train_test_split(test_size=0.2, stratify=y, random_state=42)",
+    "labeling": "median_split",
+    "note": "median split 给出 50:50 平衡标签，Accuracy 与 Balanced Accuracy 接近，不存在类别不平衡虚高问题。这与 train_rf.py（阈值+丢弃中间带，86% 活性）是两套不同的标注策略，不可混用比较。"
+  },
+  "cv_results": {
+    "n_splits": 5,
+    "folds": [
+      {
+        "accuracy": 0.7908201655379985,
+        "balanced_accuracy": 0.7901376146788991,
+        "mcc": 0.5828702198798273,
+        "f1": 0.8018531717747683,
+        "precision": 0.7726648351648352,
+        "recall": 0.8333333333333334,
+        "roc_auc": 0.8737221089591121,
+        "pr_auc": 0.8803763832855724,
+        "confusion": {
+          "tn": 977,
+          "fp": 331,
+          "fn": 225,
+          "tp": 1125
+        },
+        "specificity": 0.7469418960244648,
+        "fold": 1,
+        "n_train": 10628,
+        "n_val": 2658,
+        "train_seconds": 0.34
+      },
+      {
+        "accuracy": 0.7738050432818969,
+        "balanced_accuracy": 0.7733375839496727,
+        "mcc": 0.5478204714598435,
+        "f1": 0.7827972533429707,
+        "precision": 0.7642907551164432,
+        "recall": 0.8022222222222222,
+        "roc_auc": 0.8612360792314885,
+        "pr_auc": 0.8610818090335666,
+        "confusion": {
+          "tn": 973,
+          "fp": 334,
+          "fn": 267,
+          "tp": 1083
+        },
+        "specificity": 0.7444529456771232,
+        "fold": 2,
+        "n_train": 10629,
+        "n_val": 2657,
+        "train_seconds": 0.35
+      },
+      {
+        "accuracy": 0.7835905156191193,
+        "balanced_accuracy": 0.7827235115758452,
+        "mcc": 0.5692354991443168,
+        "f1": 0.7970349452876809,
+        "precision": 0.7612946729602158,
+        "recall": 0.8362962962962963,
+        "roc_auc": 0.8647479384510754,
+        "pr_auc": 0.8606576645615784,
+        "confusion": {
+          "tn": 953,
+          "fp": 354,
+          "fn": 221,
+          "tp": 1129
+        },
+        "specificity": 0.7291507268553941,
+        "fold": 3,
+        "n_train": 10629,
+        "n_val": 2657,
+        "train_seconds": 0.36
+      },
+      {
+        "accuracy": 0.7850959729017689,
+        "balanced_accuracy": 0.7846558417637224,
+        "mcc": 0.5703921021837225,
+        "f1": 0.7933405718422005,
+        "precision": 0.775654635527247,
+        "recall": 0.8118518518518518,
+        "roc_auc": 0.8703111451160419,
+        "pr_auc": 0.8732563235014343,
+        "confusion": {
+          "tn": 990,
+          "fp": 317,
+          "fn": 254,
+          "tp": 1096
+        },
+        "specificity": 0.7574598316755929,
+        "fold": 4,
+        "n_train": 10629,
+        "n_val": 2657,
+        "train_seconds": 0.34
+      },
+      {
+        "accuracy": 0.7922468949943545,
+        "balanced_accuracy": 0.7916075830995495,
+        "mcc": 0.5854330939682362,
+        "f1": 0.8025751072961373,
+        "precision": 0.7759336099585062,
+        "recall": 0.8311111111111111,
+        "roc_auc": 0.8699016690753492,
+        "pr_auc": 0.8651324418171454,
+        "confusion": {
+          "tn": 983,
+          "fp": 324,
+          "fn": 228,
+          "tp": 1122
+        },
+        "specificity": 0.7521040550879877,
+        "fold": 5,
+        "n_train": 10629,
+        "n_val": 2657,
+        "train_seconds": 0.36
+      }
+    ],
+    "roc_auc": {
+      "mean": 0.8679837881666135,
+      "std": 0.004950390952300648,
+      "min": 0.8612360792314885,
+      "max": 0.8737221089591121
+    },
+    "accuracy": {
+      "mean": 0.7851117184670277,
+      "std": 0.007308425305897859,
+      "min": 0.7738050432818969,
+      "max": 0.7922468949943545
+    },
+    "balanced_accuracy": {
+      "mean": 0.7844924270135377,
+      "std": 0.007247066301118018,
+      "min": 0.7733375839496727,
+      "max": 0.7916075830995495
+    },
+    "mcc": {
+      "mean": 0.5711502773271893,
+      "std": 0.014915402705632195,
+      "min": 0.5478204714598435,
+      "max": 0.5854330939682362
+    },
+    "f1": {
+      "mean": 0.7955202099087516,
+      "std": 0.008043582104495654,
+      "min": 0.7827972533429707,
+      "max": 0.8025751072961373
+    },
+    "precision": {
+      "mean": 0.7699677017454495,
+      "std": 0.006757532032206975,
+      "min": 0.7612946729602158,
+      "max": 0.7759336099585062
+    },
+    "recall": {
+      "mean": 0.8229629629629629,
+      "std": 0.015044515564140704,
+      "min": 0.8022222222222222,
+      "max": 0.8362962962962963
+    },
+    "pr_auc": {
+      "mean": 0.8681009244398595,
+      "std": 0.008525652719011042,
+      "min": 0.8606576645615784,
+      "max": 0.8803763832855724
+    },
+    "specificity": {
+      "mean": 0.7460218910641127,
+      "std": 0.010674307766279808,
+      "min": 0.7291507268553941,
+      "max": 0.7574598316755929
+    }
+  },
+  "final_test_results": {
+    "accuracy": 0.7893152746425884,
+    "balanced_accuracy": 0.7887869520897044,
+    "mcc": 0.5791767464474763,
+    "f1": 0.7985611510791367,
+    "precision": 0.7762237762237763,
+    "recall": 0.8222222222222222,
+    "roc_auc": 0.8700713557594292,
+    "pr_auc": 0.8716923541875778,
+    "confusion": {
+      "tn": 988,
+      "fp": 320,
+      "fn": 240,
+      "tp": 1110
+    },
+    "specificity": 0.7553516819571865,
+    "n_train": 10628,
+    "n_test": 2658,
+    "positive_rate_train": 0.5080918328942416,
+    "positive_rate_test": 0.5079006772009029
+  },
+  "comparison_to_readme": {
+    "sample_size": {
+      "claimed": 13286,
+      "reproduced": 13286,
+      "match": true
+    },
+    "positive_rate": {
+      "claimed": 0.508,
+      "reproduced": 0.5080535902453711,
+      "match": true
+    },
+    "rf_cv_auc": {
+      "claimed": 0.867,
+      "claimed_std": 0.005,
+      "reproduced": 0.8679837881666135,
+      "reproduced_std": 0.004950390952300648,
+      "match": true
+    },
+    "rf_cv_accuracy": {
+      "claimed": 0.782,
+      "claimed_std": 0.005,
+      "reproduced": 0.7851117184670277,
+      "reproduced_std": 0.007308425305897859,
+      "match": true
+    }
+  },
+  "artifacts": {
+    "model": "artifacts\\rf_legacy_protocol.pkl",
+    "model_sha256": "a2224e9c64c057addcd4d631bc0af4c60cb1452424ffd08ad1b8be02afa4ad51"
+  },
+  "runtime_seconds": 11.72
+}

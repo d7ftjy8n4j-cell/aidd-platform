@@ -1,0 +1,339 @@
+{
+  "schema_version": "1.0",
+  "generated_utc": "2026-10-23T21:10:57.930613+00:00",
+  "script": "scripts/scaffold_split_multiseed.py",
+  "generated_by": "改进总控代理 / P0-05",
+  "purpose": "多随机种子 Bemis-Murcko scaffold split，确立 legacy 协议泛化结论（审稿 Q6/Q7）",
+  "data": {
+    "csv": "data/raw/egfr_all_ic50_full.csv",
+    "csv_sha256": "8525319917e534b72a5cb3c440f23dee61379460082cb88a333948854a0e7dc4",
+    "n_rows": 13286,
+    "labeling": "median_split (pIC50 >= 7.0000)",
+    "positive_rate": 0.5080535902453711
+  },
+  "features": {
+    "names": [
+      "MolWt",
+      "NumHAcceptors",
+      "NumHDonors",
+      "NumRotatableBonds",
+      "RingCount",
+      "FractionCSP3",
+      "HeavyAtomCount",
+      "NumHeteroatoms",
+      "NumSaturatedRings",
+      "NumAromaticRings",
+      "TPSA",
+      "MolLogP"
+    ],
+    "n": 12,
+    "diagnostics": {
+      "unparsable_smiles": 0,
+      "zero_fill_counts": {},
+      "zero_fill_total": 0
+    }
+  },
+  "hparams": {
+    "n_estimators": 200,
+    "max_depth": 15,
+    "max_features": "sqrt",
+    "min_samples_leaf": 2,
+    "criterion": "gini",
+    "bootstrap": true,
+    "random_state_note": "RF random_state 与 split seed 配对，seeds=42..51"
+  },
+  "protocol": {
+    "split": "scaffold_group_greedy（洗牌骨架列表，整骨架入测试集至 >=20%，构造性零重叠 + 断言）",
+    "test_size": 0.2,
+    "n_seeds": 10,
+    "seeds": [
+      42,
+      43,
+      44,
+      45,
+      46,
+      47,
+      48,
+      49,
+      50,
+      51
+    ],
+    "reference_random_split": {
+      "auc": 0.8679837881666135,
+      "std": 0.004950390952300648,
+      "source": "artifacts/rf_legacy_protocol_metrics.json (5-fold CV, EXP-010b)"
+    }
+  },
+  "scaffold_diversity": {
+    "unique_scaffolds": 4653,
+    "unparsable_treated_as_singleton": 2,
+    "largest_scaffold_count": 695,
+    "largest_scaffold_share": 0.0523107029956345,
+    "top5_share": 0.09107331025139244,
+    "top10_share": 0.12810477194038838,
+    "top10_scaffolds": [
+      {
+        "smiles": "c1ccc(Nc2ncnc3ccccc23)cc1",
+        "count": 695
+      },
+      {
+        "smiles": "c1ccc(Nc2ccnc(Nc3ccccc3)n2)cc1",
+        "count": 148
+      },
+      {
+        "smiles": "c1ccc(Nc2nccc(-c3c[nH]c4ccccc34)n2)cc1",
+        "count": 128
+      },
+      {
+        "smiles": "c1ccc(CNc2ncnc3[nH]c(-c4ccccc4)cc23)cc1",
+        "count": 122
+      },
+      {
+        "smiles": "C1=C(C(Nc2ccc3ncccc3c2)c2cccnc2)NNN1C1CC1",
+        "count": 117
+      },
+      {
+        "smiles": "c1ccccc1",
+        "count": 109
+      },
+      {
+        "smiles": "c1ccc(Nc2ncnc3cc(OCC4CNCCO4)ccc23)cc1",
+        "count": 102
+      },
+      {
+        "smiles": "c1ccc(Nc2ccnc3ccccc23)cc1",
+        "count": 100
+      },
+      {
+        "smiles": "c1ccc(Nc2ncnc3ccncc23)cc1",
+        "count": 95
+      },
+      {
+        "smiles": "c1ccc(Nc2ncnc3cc(OC4COC5CCOC54)ccc23)cc1",
+        "count": 86
+      }
+    ]
+  },
+  "per_seed": [
+    {
+      "seed": 42,
+      "n_train": 10587,
+      "n_test": 2699,
+      "roc_auc": 0.8338406590507348,
+      "pr_auc": 0.8285547211774892,
+      "accuracy": 0.7462022971470915,
+      "balanced_accuracy": 0.746452567518842,
+      "mcc": 0.49266067206684233,
+      "f1": 0.7421904403462551,
+      "confusion": {
+        "tn": 1028,
+        "fp": 364,
+        "fn": 321,
+        "tp": 986
+      },
+      "train_seconds": 0.64
+    },
+    {
+      "seed": 43,
+      "n_train": 10602,
+      "n_test": 2684,
+      "roc_auc": 0.8424328627924004,
+      "pr_auc": 0.8460948167854228,
+      "accuracy": 0.7466467958271237,
+      "balanced_accuracy": 0.7482424261307115,
+      "mcc": 0.4965892999403933,
+      "f1": 0.7460791635548917,
+      "confusion": {
+        "tn": 1005,
+        "fp": 277,
+        "fn": 403,
+        "tp": 999
+      },
+      "train_seconds": 0.55
+    },
+    {
+      "seed": 44,
+      "n_train": 10622,
+      "n_test": 2664,
+      "roc_auc": 0.7971822224035244,
+      "pr_auc": 0.7725769203307987,
+      "accuracy": 0.7083333333333334,
+      "balanced_accuracy": 0.7128749558075658,
+      "mcc": 0.42658613535940904,
+      "f1": 0.7116883116883117,
+      "confusion": {
+        "tn": 928,
+        "fp": 500,
+        "fn": 277,
+        "tp": 959
+      },
+      "train_seconds": 0.49
+    },
+    {
+      "seed": 45,
+      "n_train": 10588,
+      "n_test": 2698,
+      "roc_auc": 0.8234815713582332,
+      "pr_auc": 0.8183969615065743,
+      "accuracy": 0.7405485544848036,
+      "balanced_accuracy": 0.7404405816979672,
+      "mcc": 0.48174707525247173,
+      "f1": 0.7485632183908046,
+      "confusion": {
+        "tn": 956,
+        "fp": 388,
+        "fn": 312,
+        "tp": 1042
+      },
+      "train_seconds": 0.52
+    },
+    {
+      "seed": 46,
+      "n_train": 10623,
+      "n_test": 2663,
+      "roc_auc": 0.8372158914531797,
+      "pr_auc": 0.8373703430443578,
+      "accuracy": 0.7604205782951559,
+      "balanced_accuracy": 0.7584726008454823,
+      "mcc": 0.5242194175778506,
+      "f1": 0.7815068493150685,
+      "confusion": {
+        "tn": 884,
+        "fp": 414,
+        "fn": 224,
+        "tp": 1141
+      },
+      "train_seconds": 0.61
+    },
+    {
+      "seed": 47,
+      "n_train": 10629,
+      "n_test": 2657,
+      "roc_auc": 0.8302205739605103,
+      "pr_auc": 0.8411732341622993,
+      "accuracy": 0.7557395558901017,
+      "balanced_accuracy": 0.7524829559080475,
+      "mcc": 0.5065933013866669,
+      "f1": 0.7785738655748892,
+      "confusion": {
+        "tn": 867,
+        "fp": 345,
+        "fn": 304,
+        "tp": 1141
+      },
+      "train_seconds": 0.59
+    },
+    {
+      "seed": 48,
+      "n_train": 10586,
+      "n_test": 2700,
+      "roc_auc": 0.8458863576043467,
+      "pr_auc": 0.8252001442694511,
+      "accuracy": 0.7596296296296297,
+      "balanced_accuracy": 0.7630973145159823,
+      "mcc": 0.525467803604929,
+      "f1": 0.7570198427555223,
+      "confusion": {
+        "tn": 1040,
+        "fp": 411,
+        "fn": 238,
+        "tp": 1011
+      },
+      "train_seconds": 0.56
+    },
+    {
+      "seed": 49,
+      "n_train": 10620,
+      "n_test": 2666,
+      "roc_auc": 0.7806584431724989,
+      "pr_auc": 0.7753341037319867,
+      "accuracy": 0.7066766691672918,
+      "balanced_accuracy": 0.7079295563878626,
+      "mcc": 0.416022347371078,
+      "f1": 0.7079910380881255,
+      "confusion": {
+        "tn": 936,
+        "fp": 449,
+        "fn": 333,
+        "tp": 948
+      },
+      "train_seconds": 0.54
+    },
+    {
+      "seed": 50,
+      "n_train": 10628,
+      "n_test": 2658,
+      "roc_auc": 0.768819974863048,
+      "pr_auc": 0.7763312328263866,
+      "accuracy": 0.6956358164033107,
+      "balanced_accuracy": 0.6947348459723901,
+      "mcc": 0.3900140990950878,
+      "f1": 0.7101397348620566,
+      "confusion": {
+        "tn": 858,
+        "fp": 423,
+        "fn": 386,
+        "tp": 991
+      },
+      "train_seconds": 0.47
+    },
+    {
+      "seed": 51,
+      "n_train": 10610,
+      "n_test": 2676,
+      "roc_auc": 0.8554110063455179,
+      "pr_auc": 0.8574174930837053,
+      "accuracy": 0.7720478325859492,
+      "balanced_accuracy": 0.7719802931450532,
+      "mcc": 0.5462354049714523,
+      "f1": 0.7821428571428571,
+      "confusion": {
+        "tn": 971,
+        "fp": 365,
+        "fn": 245,
+        "tp": 1095
+      },
+      "train_seconds": 0.49
+    }
+  ],
+  "aggregate": {
+    "roc_auc": {
+      "mean": 0.8215149563003994,
+      "std": 0.029243539763942807,
+      "min": 0.768819974863048,
+      "max": 0.8554110063455179
+    },
+    "pr_auc": {
+      "mean": 0.8178449970918471,
+      "std": 0.03169007735908188,
+      "min": 0.7725769203307987,
+      "max": 0.8574174930837053
+    },
+    "accuracy": {
+      "mean": 0.739188106276379,
+      "std": 0.026320418973891892,
+      "min": 0.6956358164033107,
+      "max": 0.7720478325859492
+    },
+    "balanced_accuracy": {
+      "mean": 0.7396708097929905,
+      "std": 0.02576644128657507,
+      "min": 0.6947348459723901,
+      "max": 0.7719802931450532
+    },
+    "mcc": {
+      "mean": 0.4806135556626181,
+      "std": 0.05227644380863581,
+      "min": 0.3900140990950878,
+      "max": 0.5462354049714523
+    },
+    "f1": {
+      "mean": 0.7465895321718782,
+      "std": 0.029202514157528267,
+      "min": 0.7079910380881255,
+      "max": 0.7821428571428571
+    }
+  },
+  "conclusion_hint": "若 scaffold-split AUC 均值不低于随机划分参考（Δ>=0 或轻微为负但 std 内），则不存在骨架级泄漏，可主张泛化到新骨架；解释边界写入 EXP-021。",
+  "runtime_seconds": 21.54
+}

@@ -1,0 +1,246 @@
+{
+  "schema_version": "1.0",
+  "generated_utc": "2026-10-23T19:24:52.093206+00:00",
+  "script": "scripts/train_rf.py",
+  "generated_by": "改进总控代理 / P0-01",
+  "environment": {
+    "python": "3.11.15",
+    "platform": "Windows-10-10.0.26200-SP0",
+    "numpy": "1.26.4",
+    "pandas": "1.5.3",
+    "scikit_learn": "1.9.0",
+    "joblib": "1.5.3"
+  },
+  "data": {
+    "snapshot": {
+      "created_utc": "2026-10-23T19:24:38.487012+00:00",
+      "target_name_requested": "EGFR",
+      "target_name_resolved": "Epidermal growth factor receptor",
+      "target_chembl_id": "CHEMBL203",
+      "activity_type": "IC50",
+      "max_records_requested": 2000,
+      "raw_count_reported": 10000,
+      "n_records": 1998,
+      "fetch_seconds": 99.13,
+      "sha256_csv": "79068a1ed591d3ee650101057d70c288424df38456d5702ded7c9fc4e479c70c",
+      "snapshot_path": "C:\\Users\\dadamingli\\Desktop\\my-egfr-v2\\data\\raw\\chembl_egfr_activities.csv",
+      "chembl_client_version": "0.10.9"
+    },
+    "raw_n": 1998,
+    "clean_n": 1606,
+    "label_counts": {
+      "0": 225,
+      "1": 1381
+    },
+    "positive_rate": 0.8599003735990037,
+    "pic50_threshold": 6.0,
+    "data_fingerprint_sha256": "8d5458797758f92c8bd53695538543a8db471d537ab05e10f45aa4380d7a5753",
+    "cleaning_stages": [
+      {
+        "name": "原始数据",
+        "remaining": 1998,
+        "removed": 0
+      },
+      {
+        "name": "去重",
+        "remaining": 1998,
+        "removed": 0
+      },
+      {
+        "name": "SMILES 有效性检查",
+        "remaining": 1998,
+        "removed": 0
+      },
+      {
+        "name": "活性阈值过滤 (pIC50 ≥ 6 → 活性)",
+        "remaining": 1606,
+        "removed": 392
+      },
+      {
+        "name": "分子描述符计算",
+        "remaining": 1606,
+        "removed": 0
+      }
+    ]
+  },
+  "features": {
+    "names": [
+      "MolWt",
+      "NumHAcceptors",
+      "NumHDonors",
+      "NumRotatableBonds",
+      "RingCount",
+      "FractionCSP3",
+      "HeavyAtomCount",
+      "NumHeteroatoms",
+      "NumSaturatedRings",
+      "NumAromaticRings",
+      "TPSA",
+      "MolLogP"
+    ],
+    "n_features": 12,
+    "source": "feature_names.json",
+    "computation": "replicated from real_predictor.smiles_to_features (silent zero-fill on error)",
+    "diagnostics": {
+      "n_molecules": 1606,
+      "unparsable_smiles": 0,
+      "invalid_descriptor_names": [],
+      "zero_fill_counts": {},
+      "zero_fill_total": 0,
+      "note": "部署模型计算特征时对异常静默填 0.0（real_predictor.py:203-208）。本脚本复刻该行为以保证与 shipped pkl 一致，但填充次数在此显式记录。"
+    }
+  },
+  "hparams": {
+    "n_estimators": 200,
+    "max_depth": 15,
+    "max_features": "sqrt",
+    "min_samples_leaf": 2,
+    "criterion": "gini",
+    "bootstrap": true,
+    "random_state": 42
+  },
+  "protocol": {
+    "cv": "StratifiedKFold(n_splits=5, shuffle=True, random_state=42)",
+    "test": "train_test_split(test_size=0.2, stratify=y, random_state=42)",
+    "split_type": "random_stratified",
+    "known_limitation": "随机分层划分会让同骨架分子同时出现在训练与测试集，AUC 系统性偏高。scaffold split 对照见 P0-05（尚未完成）。"
+  },
+  "cv_results": {
+    "n_splits": 5,
+    "folds": [
+      {
+        "accuracy": 0.8850931677018633,
+        "f1": 0.9358752166377816,
+        "precision": 0.9,
+        "recall": 0.9747292418772563,
+        "roc_auc": 0.8556758924989972,
+        "pr_auc": 0.969274130436664,
+        "fold": 1,
+        "n_train": 1284,
+        "n_val": 322,
+        "train_seconds": 0.7
+      },
+      {
+        "accuracy": 0.881619937694704,
+        "f1": 0.9340277777777778,
+        "precision": 0.8966666666666666,
+        "recall": 0.9746376811594203,
+        "roc_auc": 0.8396135265700483,
+        "pr_auc": 0.9654107044061906,
+        "fold": 2,
+        "n_train": 1285,
+        "n_val": 321,
+        "train_seconds": 0.61
+      },
+      {
+        "accuracy": 0.9096573208722741,
+        "f1": 0.9493891797556719,
+        "precision": 0.9158249158249159,
+        "recall": 0.9855072463768116,
+        "roc_auc": 0.9247987117552334,
+        "pr_auc": 0.9858380428558986,
+        "fold": 3,
+        "n_train": 1285,
+        "n_val": 321,
+        "train_seconds": 0.63
+      },
+      {
+        "accuracy": 0.9003115264797508,
+        "f1": 0.9440559440559441,
+        "precision": 0.9121621621621622,
+        "recall": 0.9782608695652174,
+        "roc_auc": 0.892914653784219,
+        "pr_auc": 0.9803244705076282,
+        "fold": 4,
+        "n_train": 1285,
+        "n_val": 321,
+        "train_seconds": 0.66
+      },
+      {
+        "accuracy": 0.8909657320872274,
+        "f1": 0.9380530973451328,
+        "precision": 0.916955017301038,
+        "recall": 0.9601449275362319,
+        "roc_auc": 0.8944444444444445,
+        "pr_auc": 0.9760121448790724,
+        "fold": 5,
+        "n_train": 1285,
+        "n_val": 321,
+        "train_seconds": 0.67
+      }
+    ],
+    "roc_auc": {
+      "mean": 0.8814894458105884,
+      "std": 0.033889497009835186,
+      "min": 0.8396135265700483,
+      "max": 0.9247987117552334
+    },
+    "accuracy": {
+      "mean": 0.8935295369671639,
+      "std": 0.011463908278944862,
+      "min": 0.881619937694704,
+      "max": 0.9096573208722741
+    },
+    "f1": {
+      "mean": 0.9402802431144617,
+      "std": 0.006338107045041515,
+      "min": 0.9340277777777778,
+      "max": 0.9493891797556719
+    },
+    "precision": {
+      "mean": 0.9083217523909566,
+      "std": 0.009363119910479327,
+      "min": 0.8966666666666666,
+      "max": 0.916955017301038
+    },
+    "recall": {
+      "mean": 0.9746559933029875,
+      "std": 0.00923744494589151,
+      "min": 0.9601449275362319,
+      "max": 0.9855072463768116
+    },
+    "pr_auc": {
+      "mean": 0.9753718986170907,
+      "std": 0.008229310811422022,
+      "min": 0.9654107044061906,
+      "max": 0.9858380428558986
+    }
+  },
+  "final_test_results": {
+    "accuracy": 0.8975155279503105,
+    "f1": 0.9430051813471503,
+    "precision": 0.9039735099337748,
+    "recall": 0.9855595667870036,
+    "roc_auc": 0.865222623345367,
+    "pr_auc": 0.9705951461908288,
+    "n_train": 1284,
+    "n_test": 322,
+    "train_seconds": 0.64,
+    "positive_rate_train": 0.8598130841121495,
+    "positive_rate_test": 0.860248447204969
+  },
+  "legacy_model_comparison": {
+    "available": true,
+    "type": "RandomForestClassifier",
+    "n_features_in_": 12,
+    "n_estimators": 200,
+    "max_depth": 15,
+    "_sklearn_version": null,
+    "test_metrics": {
+      "accuracy": 0.7453416149068323,
+      "f1": 0.8291666666666667,
+      "precision": 0.9802955665024631,
+      "recall": 0.7184115523465704,
+      "roc_auc": 0.8953068592057762,
+      "pr_auc": 0.9809192806881742
+    },
+    "agreement_rate": 0.6925465838509317,
+    "proba_correlation": 0.6485136416583192
+  },
+  "artifacts": {
+    "model": "artifacts\\rf_repro.pkl",
+    "model_sha256": "b4d5ad824e6143a02c737ea84758a97c51ce18b2f0d8c9bccbdb473555773b21",
+    "metrics": "artifacts\\rf_metrics.json"
+  },
+  "runtime_seconds": 121.8
+}
