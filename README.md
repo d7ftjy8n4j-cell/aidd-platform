@@ -334,6 +334,8 @@ python -m pytest -q
 > 初始训练声称值（RF 0.867/0.782，GNN 0.845/0.767，来源文件 `data/raw/gcn_cv_results.csv`）与复现值差异均 < 0.007；逐指标出处、Balanced Accuracy / MCC 与已知限制见 [docs/MODEL_CARD.md](docs/MODEL_CARD.md)，数据细节见 [docs/DATA_CARD.md](docs/DATA_CARD.md)。
 >
 > **泛化能力（10 随机种子骨架外推验证）**：把 train/test 划分为**零共享骨架**（Bemis-Murcko 分组）后，RF 的 AUC 为 **0.822 ± 0.029**（10 seeds，`scripts/scaffold_split_multiseed.py` → `artifacts/scaffold_multiseed_metrics.json`）。即：模型对**全新分子骨架**的排序能力约为 AUC 0.82，随机划分口径（0.868）对跨骨架泛化偏乐观约 5 个点——引用时请按用途选择口径，勿混用。
+>
+> **适用域（P1-02）**：模型仅对结构邻近分子可信——输入分子与训练集最近邻 Tanimoto 相似度 < 0.4 时 AUC 崩至随机水平（0.50），≥ 0.4 时 0.871（`scripts/applicability_domain.py` → `artifacts/applicability_domain_metrics.json`）。校准、基线对比、消融与失败案例见 `docs/MODEL_CARD.md` 与 `docs/FAILURE_CASES.md`。
 
 > **训练数据**：ChEMBL EGFR 靶点（CHEMBL203），IC50 (nM) 筛选去重后 **13,286** 个唯一化合物（50.8% 活性）。内置模型只覆盖 EGFR；**其他靶点请到 🎓 教学实验室 现场下载并训练小模型**（同样的四步流程，数据换成你的靶点）。
 
