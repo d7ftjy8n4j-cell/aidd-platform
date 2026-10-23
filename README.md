@@ -74,12 +74,12 @@
 - **一键流转**：获取结果可直接送入分子聚类或自动化流程
 
 ### 🧪 分子活性预测 —— 双引擎核心
-- **随机森林（RF）**：200+ RDKit 分子描述符，5 折交叉验证 AUC ≈ **0.867**
+- **随机森林（RF）**：12 个 RDKit 分子描述符（200 棵决策树），5 折交叉验证 AUC ≈ **0.868**
 - **图神经网络（GNN）**：3 层 GCN，13 维原子特征，端到端学习分子图拓扑
 - **三种模式**：标准（RF）、高级（GNN）、双模型对比
 - **可解释性**：
   - **SHAP 瀑布图**：分解每个描述符对预测的贡献
-  - **不确定性估计**：通过随机森林 100 棵树的投票方差评估预测可信度
+  - **不确定性估计**：通过随机森林 200 棵树的投票方差评估预测可信度
 - 支持批量 SMILES 与 CSV 导出
 
 ### 🛡️ 药物筛选 —— 成药性关卡
@@ -202,8 +202,8 @@
 
 ```bash
 # 1. 克隆仓库
-git clone https://github.com/d7ftjy8n4j-cell/ai-egfr-platform.git
-cd ai-egfr-platform
+git clone https://github.com/d7ftjy8n4j-cell/aidd-platform.git
+cd aidd-platform
 
 # 2. 创建虚拟环境（需要 conda 以支持 OpenMM/OpenBabel 等编译依赖）
 conda env create -f environment_md.yml
@@ -321,8 +321,19 @@ python -m pytest -q
 
 | 模型 | AUC (5-fold CV) | 准确率 | 特征 | 可解释性 |
 |------|:---:|:---:|------|:---:|
-| 随机森林 | **0.867 ± 0.005** | **0.782 ± 0.005** | 200+ RDKit 描述符 | ⭐⭐⭐ 高 (SHAP + 不确定性) |
-| GNN (GCN) | **0.845 ± 0.008** | **0.767 ± 0.011** | 13 维原子特征 | ⭐⭐ 中 |
+| 随机森林 | **0.868 ± 0.005** | **0.785 ± 0.007** | 12 个 RDKit 描述符 | ⭐⭐⭐ 高 (SHAP + 不确定性) |
+| GNN (GCN) | **0.852 ± 0.006** | **0.772 ± 0.006** | 13 维原子特征 | ⭐⭐ 中 |
+
+> **指标口径与复现**：上表为 **median split 协议**（ChEMBL CHEMBL203 IC50，13,286 条，pIC50 ≥ 中位数 7.0，类别 1.03:1 平衡）下 5 折分层交叉验证的**复现实测值**，两模型同数据同 split，可逐折比较。一条命令重跑：
+>
+> ```bash
+> python scripts/train_rf_legacy_protocol.py                                    # RF → artifacts/rf_legacy_protocol_metrics.json
+> python scripts/train_gnn.py --dataset legacy --tag legacy --epochs 25         # GNN → artifacts/gnn_metrics_legacy.json
+> ```
+>
+> 初始训练声称值（RF 0.867/0.782，GNN 0.845/0.767，来源文件 `data/raw/gcn_cv_results.csv`）与复现值差异均 < 0.007；逐指标出处、Balanced Accuracy / MCC 与已知限制见 [docs/MODEL_CARD.md](docs/MODEL_CARD.md)，数据细节见 [docs/DATA_CARD.md](docs/DATA_CARD.md)。
+>
+> **泛化能力（10 随机种子骨架外推验证）**：把 train/test 划分为**零共享骨架**（Bemis-Murcko 分组）后，RF 的 AUC 为 **0.822 ± 0.029**（10 seeds，`scripts/scaffold_split_multiseed.py` → `artifacts/scaffold_multiseed_metrics.json`）。即：模型对**全新分子骨架**的排序能力约为 AUC 0.82，随机划分口径（0.868）对跨骨架泛化偏乐观约 5 个点——引用时请按用途选择口径，勿混用。
 
 > **训练数据**：ChEMBL EGFR 靶点（CHEMBL203），IC50 (nM) 筛选去重后 **13,286** 个唯一化合物（50.8% 活性）。内置模型只覆盖 EGFR；**其他靶点请到 🎓 教学实验室 现场下载并训练小模型**（同样的四步流程，数据换成你的靶点）。
 
@@ -405,7 +416,7 @@ conda install -c conda-forge openmm openmmforcefields openff-toolkit pdbfixer md
 - **数据来源**：[ChEMBL](https://www.ebi.ac.uk/chembl/)（EMBL-EBI）、[PubChem](https://pubchem.ncbi.nlm.nih.gov/)（NCBI）、[KLIFS](https://klifs.net/)（激酶结构数据库）
 - **教程参考**：[TeachOpenCADD](https://github.com/volkamerlab/TeachOpenCADD)（T001, T007, T015, T018, T019, T034）
 - **开源工具**：RDKit、PyTorch Geometric、Streamlit、scikit-learn、OpenMM、SHAP
-- **项目仓库**：[GitHub](https://github.com/d7ftjy8n4j-cell/ai-egfr-platform)
+- **项目仓库**：[GitHub](https://github.com/d7ftjy8n4j-cell/aidd-platform)
 
 ---
 
