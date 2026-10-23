@@ -33,3 +33,7 @@ Thumbs.db
 # ========== 生成物（generate_manual.py 输出） ==========
 *用户手册*.docx
 *.docx
+
+# ========== 模型二进制（可由 scripts/ 重跑；入库与否待 LFS 决策 C-06） ==========
+artifacts/*.pkl
+artifacts/*.pth
