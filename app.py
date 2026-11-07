@@ -81,7 +81,9 @@ if 'theme' not in st.session_state:
         st.session_state.theme = "light"  # 默认
 
 # ========== 添加路径 ==========
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+_app_dir = os.path.dirname(os.path.abspath(__file__))
+if _app_dir not in sys.path:
+    sys.path.insert(0, _app_dir)
 
 # ========== 运行环境自愈（等价于 conda activate）==========
 # 启动器为不依赖 conda-on-PATH，直接调用 <env>\python.exe -m streamlit，
@@ -320,10 +322,14 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s',
     encoding='utf-8'
 )
-console_handler = logging.StreamHandler()
-console_handler.setLevel(Config.LOG_LEVEL)
-console_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
-logging.getLogger().addHandler(console_handler)
+_root_logger = logging.getLogger()
+if not any(getattr(handler, "_aidd_platform_console", False)
+           for handler in _root_logger.handlers):
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(Config.LOG_LEVEL)
+    console_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+    console_handler._aidd_platform_console = True
+    _root_logger.addHandler(console_handler)
 
 # ========== 缓存 3D 视图生成 ==========
 @st.cache_resource
