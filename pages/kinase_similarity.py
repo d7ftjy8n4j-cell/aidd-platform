@@ -135,7 +135,11 @@ def page_kinase_similarity():
                     "（每个激酶最多取 100 个高质量结构；首个分析结果会缓存 24 小时）。"
                 )
                 fig = plot_ifp_heatmap(dist_matrix, labels)
-                st.pyplot(fig)
+                import matplotlib.pyplot as plt
+                try:
+                    st.pyplot(fig)
+                finally:
+                    plt.close(fig)
 
                 # 5. 脱靶风险提示
                 st.subheader("⚠️ 潜在脱靶风险分析")

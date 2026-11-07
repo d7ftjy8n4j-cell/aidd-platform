@@ -631,13 +631,13 @@ def page_molecular_dynamics():
             if analysis:
                 st.divider()
                 st.subheader("📈 轨迹分析")
+                import matplotlib.pyplot as plt
 
                 chart_col1, chart_col2 = st.columns(2)
 
                 with chart_col1:
                     st.markdown("**蛋白骨架 RMSD**")
                     if len(analysis["rmsd_protein"]) > 1:
-                        import matplotlib.pyplot as plt
                         fig, ax = plt.subplots(figsize=(5, 3))
                         ax.plot(analysis["time_ps"], analysis["rmsd_protein"], color="#2196F3", linewidth=1.5)
                         ax.axhline(y=2.0, color="red", linestyle="--", alpha=0.5, label="2.0 Å")
@@ -646,7 +646,10 @@ def page_molecular_dynamics():
                         ax.legend(fontsize=8)
                         ax.set_title("蛋白骨架 RMSD", fontsize=10)
                         fig.tight_layout()
-                        st.pyplot(fig)
+                        try:
+                            st.pyplot(fig)
+                        finally:
+                            plt.close(fig)
                         st.caption("RMSD 越大表示结构偏离初始构象越多。若曲线趋于平稳，说明体系已平衡。")
                     else:
                         st.info("帧数不足，无法绘制 RMSD 曲线")
@@ -660,7 +663,10 @@ def page_molecular_dynamics():
                         ax2.set_ylabel("配体 RMSD (Å)")
                         ax2.set_title("配体重原子 RMSD", fontsize=10)
                         fig2.tight_layout()
-                        st.pyplot(fig2)
+                        try:
+                            st.pyplot(fig2)
+                        finally:
+                            plt.close(fig2)
                         st.caption("配体 RMSD 反映配体在结合口袋中的稳定性。")
                     else:
                         st.info("帧数不足")
@@ -674,7 +680,10 @@ def page_molecular_dynamics():
                     ax3.set_ylabel("RMSF (Å)")
                     ax3.set_title("蛋白残基 RMSF", fontsize=10)
                     fig3.tight_layout()
-                    st.pyplot(fig3)
+                    try:
+                        st.pyplot(fig3)
+                    finally:
+                        plt.close(fig3)
                     st.caption("RMSF 越高，残基越柔性。loop 区通常 RMSF 较高，α-螺旋/β-折叠较低。")
 
             # ---- 下载 ----

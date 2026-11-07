@@ -379,7 +379,10 @@ def page_molecular_generation():
                         axes[1, 1].set_xlabel("HBA 数量")
 
                         plt.tight_layout()
-                        st.pyplot(fig)
+                        try:
+                            st.pyplot(fig)
+                        finally:
+                            plt.close(fig)
 
             # SMILES 列表 + 输出到下游
             st.subheader("📋 SMILES 列表 (可复制到预测模块)")
@@ -474,4 +477,7 @@ def page_molecular_generation():
                 ax.set_xlabel("Epoch")
                 ax.set_ylabel("Loss")
                 ax.set_title("训练 Loss 曲线")
-                st.pyplot(fig)
+                try:
+                    st.pyplot(fig)
+                finally:
+                    plt.close(fig)
