@@ -290,6 +290,22 @@ def _render_py3dmol(view, height=500, width=800):
     html_str = view._make_html()
     st.components.v1.html(html_str, height=height, width=width)
 
+
+def _render_figure(figure):
+    """渲染 Matplotlib 图表并在渲染后释放 Figure 资源。"""
+    if figure is None:
+        return
+    try:
+        st.pyplot(figure)
+    finally:
+        try:
+            import matplotlib.pyplot as plt
+
+            plt.close(figure)
+        except Exception as exc:
+            logging.debug("关闭 Matplotlib 图表失败: %s", exc)
+
+
 # ========== 配置类 ==========
 import model_registry  # 模型性能指标单一事实源（artifacts/*.json 的可复现实测值）
 
@@ -694,7 +710,7 @@ def _render_shap_uncertainty_section(rf_predictor, smiles, rf_result):
 
                     # 瀑布图
                     fig_waterfall = plot_shap_waterfall(shap_result)
-                    st.pyplot(fig_waterfall)
+                    _render_figure(fig_waterfall)
 
                     # 文字摘要
                     st.markdown(format_shap_insights(shap_result))
@@ -702,7 +718,7 @@ def _render_shap_uncertainty_section(rf_predictor, smiles, rf_result):
                     # 条形图
                     with st.expander("📊 查看特征重要性条形图"):
                         fig_bar = plot_shap_bar(shap_result)
-                        st.pyplot(fig_bar)
+                        _render_figure(fig_bar)
 
                 except Exception as e:
                     st.warning(f"SHAP 分析失败: {e}")
@@ -749,7 +765,7 @@ def _render_shap_uncertainty_section(rf_predictor, smiles, rf_result):
                 # 分布直方图
                 try:
                     fig_dist = plot_uncertainty_distribution(unc_result)
-                    st.pyplot(fig_dist)
+                    _render_figure(fig_dist)
                 except Exception:
                     pass  # 非关键，忽略绘图失败
 
@@ -765,7 +781,7 @@ def _render_fallback_importance(rf_predictor, feature_names):
             rf_predictor.model, feature_names
         )
         if fig is not None:
-            st.pyplot(fig)
+            _render_figure(fig)
         else:
             st.info("当前模型不提供特征重要性信息")
     except Exception as e:
@@ -1033,7 +1049,7 @@ def page_drug_screening():
                     clean_stats = df_clean[["MW", "HBA", "HBD", "LogP"]].describe().T
                     fig_radar = adme_tool.plot_radar_chart(clean_stats, "Filtered Candidates Profile")
                     if fig_radar:
-                        st.pyplot(fig_radar)
+                        _render_figure(fig_radar)
 
                 with viz_col2:
                     st.markdown("**淘汰原因统计**")
