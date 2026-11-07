@@ -149,6 +149,18 @@ class DataFetcher:
         -------
         FetchResult
         """
+        try:
+            invalid_max_compounds = max_compounds < 0
+        except TypeError:
+            invalid_max_compounds = True
+        if invalid_max_compounds:
+            return FetchResult(
+                success=False,
+                query=target_name,
+                source="ChEMBL",
+                error="max_compounds 必须是非负整数",
+            )
+
         if not CHEMBL_AVAILABLE:
             return FetchResult(
                 success=False, query=target_name, source="ChEMBL",
@@ -374,6 +386,29 @@ class DataFetcher:
         -------
         FetchResult
         """
+        try:
+            invalid_threshold = not 70 <= threshold <= 100
+        except TypeError:
+            invalid_threshold = True
+        if invalid_threshold:
+            return FetchResult(
+                success=False,
+                query=smiles[:50],
+                source="PubChem",
+                error="threshold 必须在 70 到 100 之间",
+            )
+        try:
+            invalid_max_records = max_records < 0
+        except TypeError:
+            invalid_max_records = True
+        if invalid_max_records:
+            return FetchResult(
+                success=False,
+                query=smiles[:50],
+                source="PubChem",
+                error="max_records 必须是非负整数",
+            )
+
         start_time = time.time()
         try:
             # 1. 创建异步任务（safe="" 编码所有保留字符，SMILES 中的 / 不会被拆成路径段）
