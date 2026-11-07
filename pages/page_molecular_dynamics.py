@@ -391,14 +391,17 @@ def page_molecular_dynamics():
                 project_root = Path(__file__).resolve().parent.parent
                 worker_script = project_root / "run_md_worker.py"
                 cmd = [sys.executable, str(worker_script), json.dumps(worker_params)]
+                worker_log_path = os.path.join(output_dir, "worker.log")
 
-                process = subprocess.Popen(
-                    cmd,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    cwd=str(project_root),
-                    env=os.environ.copy(),  # 关键：继承 conda 环境变量（OpenMM .so 路径等）
-                )
+                # worker 日志写入输出目录，避免 PIPE 未持续读取导致子进程阻塞。
+                with open(worker_log_path, "w", encoding="utf-8") as worker_log:
+                    process = subprocess.Popen(
+                        cmd,
+                        stdout=worker_log,
+                        stderr=subprocess.STDOUT,
+                        cwd=str(project_root),
+                        env=os.environ.copy(),  # 关键：继承 conda 环境变量（OpenMM .so 路径等）
+                    )
                 # 写 PID 文件以便检测孤儿进程
                 pid_file = os.path.join(output_dir, "worker.pid")
                 with open(pid_file, "w", encoding="utf-8") as pf:
@@ -425,6 +428,7 @@ def page_molecular_dynamics():
                 progress_file = os.path.join(output_dir, "progress.txt")
                 energy_csv = os.path.join(output_dir, "energy_log.csv")
                 result_file = os.path.join(output_dir, "result.json")
+                worker_log_path = os.path.join(output_dir, "worker.log")
 
                 # 刷新恢复模式：无真实 Popen 对象，从文件轮询
                 is_restored = process == "restored"
@@ -568,7 +572,8 @@ def page_molecular_dynamics():
                             st.error(f"**错误详情**：{error_msg}")
                             with st.expander("🔍 原始错误输出"):
                                 try:
-                                    stderr_output = process.stderr.read().decode("utf-8", errors="replace") if not is_restored else ""
+                                    with open(worker_log_path, "r", encoding="utf-8", errors="replace") as log_file:
+                                        stderr_output = log_file.read()
                                     st.code(stderr_output[-2000:] or "(无输出)", language="text")
                                 except Exception:
                                     st.code("(无法读取错误输出)", language="text")
