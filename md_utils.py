@@ -477,6 +477,11 @@ def run_md_simulation(
         "log": str,                 # 模拟日志
     }
     """
+    if not isinstance(total_steps, int) or total_steps <= 0:
+        raise ValueError("total_steps 必须是正整数")
+    if not isinstance(write_interval, int) or write_interval <= 0:
+        raise ValueError("write_interval 必须是正整数")
+
     import openmm as mm
     import openmm.app as app
     from openmm import unit
