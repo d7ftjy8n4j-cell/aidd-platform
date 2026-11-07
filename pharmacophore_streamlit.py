@@ -253,7 +253,8 @@ class StreamlitPharmacophore:
                        color=colors, alpha=0.6, label='重要性')
         
         # 数量条形
-        bars2 = ax.barh(y_pos + 0.2, [c/max(counts) for c in counts], 0.4,
+        count_scale = max(counts) if counts else 1
+        bars2 = ax.barh(y_pos + 0.2, [c/count_scale for c in counts], 0.4,
                        color=colors, alpha=0.3, label='数量(归一化)')
         
         ax.set_yticks(y_pos)
