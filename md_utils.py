@@ -510,7 +510,10 @@ def run_md_simulation(
     _init_progress(0.00, "准备体系...")
 
     # ---- 1. 获取 PDB ----
-    tmpdir = tempfile.mkdtemp(prefix="md_")
+    # worker 已提供专属输出目录时直接复用，确保轨迹/拓扑与 worker 结果一起清理；
+    # 直接调用且未提供 output_dir 时仍保留独立临时目录行为。
+    tmpdir = output_dir or tempfile.mkdtemp(prefix="md_")
+    os.makedirs(tmpdir, exist_ok=True)
     if pdb_id:
         pdb_path = download_pdb(pdb_id, tmpdir)
     elif pdb_content:
