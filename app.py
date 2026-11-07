@@ -812,6 +812,10 @@ def page_molecular_prediction():
     actual_prediction_mode = prediction_mode
     smiles_clean = smiles_input.strip()
 
+    # 单选 pills 允许取消选中，此时等待用户重新选择，避免误计数或调用 startswith。
+    if actual_prediction_mode is None:
+        return
+
     if len(smiles_clean) > MAX_SMILES_LENGTH:
         st.error(f"❌ 输入的 SMILES 字符串过长（超过 {MAX_SMILES_LENGTH} 字符），请缩短后重试")
     elif not smiles_clean:
