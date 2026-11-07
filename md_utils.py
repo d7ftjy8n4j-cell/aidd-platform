@@ -45,7 +45,11 @@ def _check_md_deps():
     """
     global _DEPS_AVAILABLE, _DEPS_ERRORS
 
-    # 每次调用都重新检测（不用缓存），因为 os.add_dll_directory 可能在后来才生效
+    # 依赖状态在当前 Python 进程内保持不变；缓存探测结果，避免页面 rerun
+    # 每次重新导入 OpenMM / OpenFF 等重型模块。
+    if _DEPS_AVAILABLE is not None:
+        return _DEPS_AVAILABLE
+
     deps_required = {
         "rdkit": ["rdkit", "Chem"],
         "pdbfixer": ["pdbfixer", "PDBFixer"],
