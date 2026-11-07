@@ -491,7 +491,10 @@ CC(=O)OC1=CC=CC=C1C(=O)O"""
                         ax.set_title('特征类型分布')
                         plt.xticks(rotation=45)
                         plt.tight_layout()
-                        st.pyplot(fig)
+                        try:
+                            st.pyplot(fig)
+                        finally:
+                            plt.close(fig)
                     
                     with col2:
                         st.subheader("特征详情")
@@ -549,7 +552,10 @@ CC(=O)OC1=CC=CC=C1C(=O)O"""
                         # 2D统计图
                         st.subheader("特征统计")
                         fig_2d = generator.visualize_2d_pharmacophore(ensemble_features)
-                        st.pyplot(fig_2d)
+                        try:
+                            st.pyplot(fig_2d)
+                        finally:
+                            plt.close(fig_2d)
                         
                         # 特征说明
                         st.subheader("🧪 特征说明")

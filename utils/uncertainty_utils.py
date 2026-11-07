@@ -45,29 +45,49 @@ def predict_with_uncertainty(model, features: np.ndarray):
     if not hasattr(model, "estimators_"):
         raise ValueError("模型没有 .estimators_ 属性，不是 sklearn RandomForest")
 
-    n_trees = len(model.estimators_)
+    estimators = model.estimators_
+    n_trees = len(estimators)
+    if n_trees == 0:
+        raise ValueError("随机森林模型不包含任何决策树")
+
+    features = np.asarray(features)
+    if features.ndim not in (1, 2):
+        raise ValueError("features 必须是一维或二维数组")
     n_samples = features.shape[0] if features.ndim == 2 else 1
+    if n_samples == 0:
+        raise ValueError("features 不能为空")
 
     if features.ndim == 1:
         features = features.reshape(1, -1)
 
-    # 动态定位“活性”类别列（classes_ 顺序可能不同）；找不到时回退到最后一列
+    # 动态定位“活性”类别列（classes_ 顺序可能不同）。
     classes = getattr(model, "classes_", None)
-    active_idx = 1
+    active_idx = None
     if classes is not None:
         try:
             active_idx = classes.tolist().index(1)
         except (ValueError, AttributeError):
-            active_idx = len(classes) - 1
+            active_idx = None
+    else:
+        active_idx = 1
 
     tree_probas = np.zeros((n_trees, n_samples))
-    for i, tree in enumerate(model.estimators_):
+    for i, tree in enumerate(estimators):
         proba = tree.predict_proba(features)
-        # 单类别树（bootstrap 采样恰好只有一类）predict_proba 只有一列，跳过该树
-        if proba.shape[1] <= active_idx:
+        tree_classes = getattr(tree, "classes_", None)
+        tree_active_idx = active_idx
+        if tree_classes is not None:
+            try:
+                tree_active_idx = tree_classes.tolist().index(1)
+            except (ValueError, AttributeError):
+                tree_active_idx = None
+
+        # 单类别树（bootstrap 采样恰好只有一类）需要按该树的实际类别计分，
+        # 不能因为 predict_proba 只有一列就把“全为活性”误记为 0。
+        if tree_active_idx is None or proba.shape[1] <= tree_active_idx:
             tree_probas[i, :] = 0.0
             continue
-        tree_probas[i, :] = proba[:, active_idx]
+        tree_probas[i, :] = proba[:, tree_active_idx]
 
     mean_proba = np.mean(tree_probas, axis=0)
     std_proba = np.std(tree_probas, axis=0)

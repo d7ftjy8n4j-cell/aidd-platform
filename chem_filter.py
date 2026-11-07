@@ -173,10 +173,14 @@ class SubstructureFilter:
         pains_indices = []
         brenk_indices = []
         
-        results = []
+        # 预先按原始行数创建状态，避免非法 SMILES 被跳过后产生长度不一致。
+        results = ["Invalid SMILES"] * len(df)
         
-        for idx, row in df.iterrows():
-            mol = Chem.MolFromSmiles(row[smiles_col])
+        for position, (idx, row) in enumerate(df.iterrows()):
+            try:
+                mol = Chem.MolFromSmiles(row[smiles_col])
+            except Exception:
+                mol = None
             if mol is None:
                 continue
                 
@@ -201,7 +205,7 @@ class SubstructureFilter:
             if not pains and not brenk:
                 clean_indices.append(idx)
             
-            results.append("; ".join(issues) if issues else "Pass")
+            results[position] = "; ".join(issues) if issues else "Pass"
             
         df["Filter_Status"] = results
         return df.loc[clean_indices], df, len(pains_indices), len(brenk_indices)

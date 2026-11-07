@@ -81,7 +81,9 @@ if 'theme' not in st.session_state:
         st.session_state.theme = "light"  # 默认
 
 # ========== 添加路径 ==========
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+_app_dir = os.path.dirname(os.path.abspath(__file__))
+if _app_dir not in sys.path:
+    sys.path.insert(0, _app_dir)
 
 # ========== 运行环境自愈（等价于 conda activate）==========
 # 启动器为不依赖 conda-on-PATH，直接调用 <env>\python.exe -m streamlit，
@@ -288,6 +290,22 @@ def _render_py3dmol(view, height=500, width=800):
     html_str = view._make_html()
     st.components.v1.html(html_str, height=height, width=width)
 
+
+def _render_figure(figure):
+    """渲染 Matplotlib 图表并在渲染后释放 Figure 资源。"""
+    if figure is None:
+        return
+    try:
+        st.pyplot(figure)
+    finally:
+        try:
+            import matplotlib.pyplot as plt
+
+            plt.close(figure)
+        except Exception as exc:
+            logging.debug("关闭 Matplotlib 图表失败: %s", exc)
+
+
 # ========== 配置类 ==========
 import model_registry  # 模型性能指标单一事实源（artifacts/*.json 的可复现实测值）
 
@@ -320,10 +338,14 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s',
     encoding='utf-8'
 )
-console_handler = logging.StreamHandler()
-console_handler.setLevel(Config.LOG_LEVEL)
-console_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
-logging.getLogger().addHandler(console_handler)
+_root_logger = logging.getLogger()
+if not any(getattr(handler, "_aidd_platform_console", False)
+           for handler in _root_logger.handlers):
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(Config.LOG_LEVEL)
+    console_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+    console_handler._aidd_platform_console = True
+    _root_logger.addHandler(console_handler)
 
 # ========== 缓存 3D 视图生成 ==========
 @st.cache_resource
@@ -410,31 +432,7 @@ except Exception as _mp_exc:  # 极端环境：连标准库模块都不可加载
                 "note": "预测服务不可用，请检查部署环境",
             }
 
-# 导入随机森林预测器
-try:
-    sys.path.append(Config.BASE_DIR)
-    from real_predictor import RealEGFRPredictor
-    test_predictor = RealEGFRPredictor()
-    if test_predictor.model is None:
-        raise Exception("模型加载失败: 模型为None")
-    RF_PREDICTOR_AVAILABLE = True
-    logging.info("随机森林预测器导入成功")
-except Exception as e:
-    logging.error(f"随机森林预测器失败: {e}")
-    try:
-        from fallback_predictor import FallbackEGFRPredictor
-        class RealEGFRPredictor(FallbackEGFRPredictor):
-            pass
-        test_predictor = RealEGFRPredictor()
-        RF_PREDICTOR_AVAILABLE = True
-        logging.info("备用随机森林预测器加载成功")
-    except Exception as fallback_error:
-        logging.error(f"备用预测器也失败: {fallback_error}")
-        class RealEGFRPredictor(MinimalEGFRPredictor):
-            pass
-        test_predictor = RealEGFRPredictor()
-        RF_PREDICTOR_AVAILABLE = True
-        logging.info("最简兜底预测器加载成功")
+# 随机森林预测器在 init_predictors() 中统一初始化，避免模块导入时重复加载模型。
 
 # GNN 导入改为懒加载：在 init_predictors() 内部尝试，避免 Streamlit 重渲染时重复导入
 
@@ -464,12 +462,28 @@ def init_predictors():
     # ---- 随机森林 ----
     if RF_PREDICTOR_AVAILABLE:
         try:
-            predictors['rf'] = RealEGFRPredictor()
+            from real_predictor import RealEGFRPredictor
+
+            rf_predictor = RealEGFRPredictor()
+            if rf_predictor.model is None:
+                raise RuntimeError("模型加载失败: 模型为None")
+            predictors['rf'] = rf_predictor
+            logging.info("随机森林预测器导入成功")
+        except Exception as e:
+            logging.error(f"随机森林预测器失败: {e}")
+            try:
+                from fallback_predictor import FallbackEGFRPredictor
+
+                predictors['rf'] = FallbackEGFRPredictor()
+                logging.info("备用随机森林预测器加载成功")
+            except Exception as fallback_error:
+                logging.error(f"备用预测器也失败: {fallback_error}")
+                predictors['rf'] = MinimalEGFRPredictor()
+                logging.info("最简兜底预测器加载成功")
+
             # Fallback 类没有 .model 属性，用 getattr 防御（仅当显式为 None 且无 predict 能力时才丢弃）
             if getattr(predictors['rf'], 'model', None) is None and not hasattr(predictors['rf'], 'predict'):
                 del predictors['rf']
-        except Exception as e:
-            logging.error(f"RF预测器初始化失败: {e}")
 
     # ---- GNN（懒加载：在此处导入，仅执行一次）----
     try:
@@ -696,7 +710,7 @@ def _render_shap_uncertainty_section(rf_predictor, smiles, rf_result):
 
                     # 瀑布图
                     fig_waterfall = plot_shap_waterfall(shap_result)
-                    st.pyplot(fig_waterfall)
+                    _render_figure(fig_waterfall)
 
                     # 文字摘要
                     st.markdown(format_shap_insights(shap_result))
@@ -704,7 +718,7 @@ def _render_shap_uncertainty_section(rf_predictor, smiles, rf_result):
                     # 条形图
                     with st.expander("📊 查看特征重要性条形图"):
                         fig_bar = plot_shap_bar(shap_result)
-                        st.pyplot(fig_bar)
+                        _render_figure(fig_bar)
 
                 except Exception as e:
                     st.warning(f"SHAP 分析失败: {e}")
@@ -751,7 +765,7 @@ def _render_shap_uncertainty_section(rf_predictor, smiles, rf_result):
                 # 分布直方图
                 try:
                     fig_dist = plot_uncertainty_distribution(unc_result)
-                    st.pyplot(fig_dist)
+                    _render_figure(fig_dist)
                 except Exception:
                     pass  # 非关键，忽略绘图失败
 
@@ -767,7 +781,7 @@ def _render_fallback_importance(rf_predictor, feature_names):
             rf_predictor.model, feature_names
         )
         if fig is not None:
-            st.pyplot(fig)
+            _render_figure(fig)
         else:
             st.info("当前模型不提供特征重要性信息")
     except Exception as e:
@@ -811,6 +825,10 @@ def page_molecular_prediction():
 
     actual_prediction_mode = prediction_mode
     smiles_clean = smiles_input.strip()
+
+    # 单选 pills 允许取消选中，此时等待用户重新选择，避免误计数或调用 startswith。
+    if actual_prediction_mode is None:
+        return
 
     if len(smiles_clean) > MAX_SMILES_LENGTH:
         st.error(f"❌ 输入的 SMILES 字符串过长（超过 {MAX_SMILES_LENGTH} 字符），请缩短后重试")
@@ -1031,7 +1049,7 @@ def page_drug_screening():
                     clean_stats = df_clean[["MW", "HBA", "HBD", "LogP"]].describe().T
                     fig_radar = adme_tool.plot_radar_chart(clean_stats, "Filtered Candidates Profile")
                     if fig_radar:
-                        st.pyplot(fig_radar)
+                        _render_figure(fig_radar)
 
                 with viz_col2:
                     st.markdown("**淘汰原因统计**")
