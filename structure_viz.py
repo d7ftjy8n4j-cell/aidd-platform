@@ -22,18 +22,25 @@ class StructureVisualizer:
         self.pdb_id = pdb_id
         try:
             url = f"https://files.rcsb.org/download/{pdb_id}.pdb"
-            response = requests.get(url)
+            response = requests.get(url, timeout=30)
             if response.status_code == 200:
                 self.pdb_data = response.text
                 return True
             return False
-        except:
+        except requests.RequestException:
             return False
 
     def load_from_file(self, uploaded_file):
         self.pdb_id = uploaded_file.name
-        self.pdb_data = uploaded_file.getvalue().decode("utf-8")
-        return True
+        try:
+            content = uploaded_file.getvalue()
+            self.pdb_data = (
+                content.decode("utf-8") if isinstance(content, bytes) else str(content)
+            )
+        except (AttributeError, UnicodeDecodeError, OSError):
+            self.pdb_data = None
+            return False
+        return bool(self.pdb_data)
 
     def render_view(self, style='cartoon', color_scheme='spectrum', show_ligand=True, show_surface=False, surface_opacity=0.5):
         if not self.pdb_data:
