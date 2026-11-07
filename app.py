@@ -416,31 +416,7 @@ except Exception as _mp_exc:  # 极端环境：连标准库模块都不可加载
                 "note": "预测服务不可用，请检查部署环境",
             }
 
-# 导入随机森林预测器
-try:
-    sys.path.append(Config.BASE_DIR)
-    from real_predictor import RealEGFRPredictor
-    test_predictor = RealEGFRPredictor()
-    if test_predictor.model is None:
-        raise Exception("模型加载失败: 模型为None")
-    RF_PREDICTOR_AVAILABLE = True
-    logging.info("随机森林预测器导入成功")
-except Exception as e:
-    logging.error(f"随机森林预测器失败: {e}")
-    try:
-        from fallback_predictor import FallbackEGFRPredictor
-        class RealEGFRPredictor(FallbackEGFRPredictor):
-            pass
-        test_predictor = RealEGFRPredictor()
-        RF_PREDICTOR_AVAILABLE = True
-        logging.info("备用随机森林预测器加载成功")
-    except Exception as fallback_error:
-        logging.error(f"备用预测器也失败: {fallback_error}")
-        class RealEGFRPredictor(MinimalEGFRPredictor):
-            pass
-        test_predictor = RealEGFRPredictor()
-        RF_PREDICTOR_AVAILABLE = True
-        logging.info("最简兜底预测器加载成功")
+# 随机森林预测器在 init_predictors() 中统一初始化，避免模块导入时重复加载模型。
 
 # GNN 导入改为懒加载：在 init_predictors() 内部尝试，避免 Streamlit 重渲染时重复导入
 
@@ -470,12 +446,28 @@ def init_predictors():
     # ---- 随机森林 ----
     if RF_PREDICTOR_AVAILABLE:
         try:
-            predictors['rf'] = RealEGFRPredictor()
+            from real_predictor import RealEGFRPredictor
+
+            rf_predictor = RealEGFRPredictor()
+            if rf_predictor.model is None:
+                raise RuntimeError("模型加载失败: 模型为None")
+            predictors['rf'] = rf_predictor
+            logging.info("随机森林预测器导入成功")
+        except Exception as e:
+            logging.error(f"随机森林预测器失败: {e}")
+            try:
+                from fallback_predictor import FallbackEGFRPredictor
+
+                predictors['rf'] = FallbackEGFRPredictor()
+                logging.info("备用随机森林预测器加载成功")
+            except Exception as fallback_error:
+                logging.error(f"备用预测器也失败: {fallback_error}")
+                predictors['rf'] = MinimalEGFRPredictor()
+                logging.info("最简兜底预测器加载成功")
+
             # Fallback 类没有 .model 属性，用 getattr 防御（仅当显式为 None 且无 predict 能力时才丢弃）
             if getattr(predictors['rf'], 'model', None) is None and not hasattr(predictors['rf'], 'predict'):
                 del predictors['rf']
-        except Exception as e:
-            logging.error(f"RF预测器初始化失败: {e}")
 
     # ---- GNN（懒加载：在此处导入，仅执行一次）----
     try:
