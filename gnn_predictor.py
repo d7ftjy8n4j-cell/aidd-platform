@@ -254,7 +254,7 @@ class GCNPredictor:
             return result
 
         except Exception as e:
-            logger.error(f"预测失败: {smiles[:30]}... - {e}")
+            logger.error(f"预测失败: {str(smiles)[:30]}... - {e}")
             return {
                 "success": False,
                 "smiles": smiles,
@@ -273,8 +273,14 @@ class GCNPredictor:
         返回:
             预测结果列表
         """
+        if not isinstance(batch_size, int) or batch_size <= 0:
+            raise ValueError("batch_size 必须是正整数")
+
         results = []
         total = len(smiles_list)
+        if total == 0:
+            return results
+
         logger.info(f"开始批量预测: {total}个分子")
 
         for i in range(0, total, batch_size):
